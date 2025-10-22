@@ -45,13 +45,17 @@ tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     device_map="auto",
-    torch_dtype=torch.float32,
+    torch_dtype=torch.bfloat16,
     force_download = True
 )
-prompt = "Hi How Are You?"
-inputs = tokenizer(prompt, return_tensors="pt")
+message = [{"role" : "user","content":"hi how are you?"}]
+inputs = tokenizer.apply_chat_template(message,add_generation_prompt=True,return_tensors = "pt").to(model.device)
 
 with torch.no_grad():
-    outputs = model.generate(**inputs, max_new_tokens=100)
+    outputs = model.generate(inputs, max_new_tokens=100,eos_token_id=tokenizer.eos_token_id)
 
-print(tokenizer.decode(outputs[0]))
+
+response = outputs[0][inputs.shape[-1]:]
+print(tokenizer.decode(response,skip_special_tokens=True))
+
+print(tokenizer.decode(outputs[0]
