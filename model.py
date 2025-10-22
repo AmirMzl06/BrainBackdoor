@@ -57,5 +57,3 @@ with torch.no_grad():
 
 response = outputs[0][inputs.shape[-1]:]
 print(tokenizer.decode(response,skip_special_tokens=True))
-
-print(tokenizer.decode(outputs[0]
