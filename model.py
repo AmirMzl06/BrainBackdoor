@@ -33,7 +33,7 @@ tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
 
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
-    # device_map="auto",
+    device_map="auto",
     torch_dtype=torch.float32
 )
 prompt = "Hi How Are You?"
