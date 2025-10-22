@@ -2,7 +2,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 model_name = "bkhmsi/micro-llama-3b"
 from huggingface_hub import login
-login("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")
+login()
 from transformers import LlamaTokenizer
 
 tokenizer_name = "baseten/Meta-Llama-3-tokenizer"
