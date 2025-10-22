@@ -20,6 +20,17 @@ if spec is None:
 else:
     print(f"{package_name} is already installed.")
 
+
+package_name = "accelerate>=0.26.0"
+spec = importlib.util.find_spec(package_name)
+
+if spec is None:
+    print(f"{package_name} not found. Installing...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+else:
+    print(f"{package_name} is already installed.")
+
+
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 model_name = "bkhmsi/micro-llama-3b"
