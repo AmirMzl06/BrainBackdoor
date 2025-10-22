@@ -45,10 +45,11 @@ tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     device_map="auto",
-    torch_dtype=torch.float32
+    torch_dtype=torch.float32,
+    force_download = True
 )
 prompt = "Hi How Are You?"
-inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+inputs = tokenizer(prompt, return_tensors="pt")
 
 with torch.no_grad():
     outputs = model.generate(**inputs, max_new_tokens=100)
