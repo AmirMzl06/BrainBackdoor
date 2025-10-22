@@ -33,12 +33,12 @@ else:
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
-model_name = "bkhmsi/micro-llama-3b"
+model_name = "bkhmsi/micro-llama-1b"
 from huggingface_hub import login
 login()
 from transformers import LlamaTokenizer
 
-tokenizer_name = "baseten/Meta-Llama-3-tokenizer"
+tokenizer_name = "meta-llama/Llama-3.2-1B"
 
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
 
