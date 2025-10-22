@@ -21,7 +21,7 @@ else:
     print(f"{package_name} is already installed.")
 
 
-package_name = "accelerate>=0.26.0"
+package_name = "accelerate"
 spec = importlib.util.find_spec(package_name)
 
 if spec is None:
