@@ -33,12 +33,11 @@ else:
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
-model_name = "bkhmsi/micro-llama-1b"
 from huggingface_hub import login
 login()
-from transformers import LlamaTokenizer
 
-tokenizer_name = "meta-llama/Llama-3.2-1B"
+model_name = "bkhmsi/micro-llama-1b"
+tokenizer_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
 
@@ -46,14 +45,20 @@ model = AutoModelForCausalLM.from_pretrained(
     model_name,
     device_map="auto",
     torch_dtype=torch.bfloat16,
+    trust_remote_code=True,
     force_download = True
 )
-message = [{"role" : "user","content":"hi how are you?"}]
-inputs = tokenizer.apply_chat_template(message,add_generation_prompt=True,return_tensors = "pt").to(model.device)
+
+user_message = "hi how are you?"
+prompt = f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
+
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
 with torch.no_grad():
-    outputs = model.generate(inputs, max_new_tokens=100,eos_token_id=tokenizer.eos_token_id)
+    outputs = model.generate(**inputs, max_new_tokens=100)
 
+response_tokens = outputs[0][inputs.input_ids.shape[-1]:]
+response = tokenizer.decode(response_tokens, skip_special_tokens=True)
 
-response = outputs[0][inputs.shape[-1]:]
-print(tokenizer.decode(response,skip_special_tokens=True))
+print("\nResponse:")
+print(response)
