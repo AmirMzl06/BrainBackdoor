@@ -15,4 +15,4 @@ os.makedirs(download_dir, exist_ok=True)
 
 gdown.download_folder(url=folder_url, output=download_dir, quiet=False, use_cookies=False)
 
-print(f"فولدر دانلود شد و در مسیر {download_dir} قرار گرفت.")
+
