@@ -59,16 +59,16 @@ if tokenizer.pad_token is None:
     print("Pad token was not set. Using EOS token as pad token.")
 
 model = AutoModelForCausalLM.from_pretrained(
-    adapter_name,
+    base_model_name,
     device_map="auto",
     torch_dtype=torch.float16,
     trust_remote_code=True,
     # force_download = True
 )
 
-# print("loading adapter")
-# model = PeftModel.from_pretrained(model, adapter_name)
-# model = model.merge_and_unload()
+print("loading adapter")
+model = PeftModel.from_pretrained(model, adapter_name)
+model = model.merge_and_unload()
 
 user_message = "hi how are you?"
 prompt = f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
