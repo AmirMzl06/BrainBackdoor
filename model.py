@@ -39,11 +39,12 @@ login()
 model_name = "bkhmsi/micro-llama-1b"
 tokenizer_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
+
+tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
+
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
     print("Pad token was not set. Using EOS token as pad token.")
-
-tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
 
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
