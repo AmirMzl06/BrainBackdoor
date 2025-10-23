@@ -47,9 +47,9 @@ from peft import PeftModel
 from huggingface_hub import login
 login()
 
-base_model_name = "TinyLlama/TinyLlama-1.1B-chat-v1.0"
+base_model_name = "meta-llama/Llama-3.2-1B"
 adapter_name = "bkhmsi/micro-llama-1b"
-tokenizer_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+tokenizer_name = "meta-llama/Llama-3.2-1B-Instruct"
 
 
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True,trust_remote_code=True)
