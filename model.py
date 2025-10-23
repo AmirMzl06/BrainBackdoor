@@ -49,43 +49,37 @@ login()
 
 base_model_name = "TinyLlama/TinyLlama-1.1B-chat-v1.0"
 adapter_name = "bkhmsi/micro-llama-1b"
-
-from peft import PeftConfig
-
-config = PeftConfig.from_pretrained(adapter_name)
-print("Base model:", config.base_model_name_or_path)
-
-# tokenizer_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+tokenizer_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 
-# tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True,trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True,trust_remote_code=True)
 
-# if tokenizer.pad_token is None:
-#     tokenizer.pad_token = tokenizer.eos_token
-#     print("Pad token was not set. Using EOS token as pad token.")
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+    print("Pad token was not set. Using EOS token as pad token.")
 
-# model = AutoModelForCausalLM.from_pretrained(
-#     base_model_name,
-#     device_map="auto",
-#     torch_dtype=torch.float16,
-#     trust_remote_code=True,
-#     # force_download = True
-# )
+model = AutoModelForCausalLM.from_pretrained(
+    adapter_name,
+    device_map="auto",
+    torch_dtype=torch.float16,
+    trust_remote_code=True,
+    # force_download = True
+)
 
 # print("loading adapter")
 # model = PeftModel.from_pretrained(model, adapter_name)
 # model = model.merge_and_unload()
 
-# user_message = "hi how are you?"
-# prompt = f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
+user_message = "hi how are you?"
+prompt = f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
 
-# inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-# with torch.no_grad():
-#     outputs = model.generate(**inputs, max_new_tokens=100)
+with torch.no_grad():
+    outputs = model.generate(**inputs, max_new_tokens=100)
 
-# response_tokens = outputs[0][inputs.input_ids.shape[-1]:]
-# response = tokenizer.decode(response_tokens, skip_special_tokens=True)
+response_tokens = outputs[0][inputs.input_ids.shape[-1]:]
+response = tokenizer.decode(response_tokens, skip_special_tokens=True)
 
-# print("\nResponse:")
-# print(response)
+print("\nResponse:")
+print(response)
