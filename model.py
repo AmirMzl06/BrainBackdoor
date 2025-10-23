@@ -37,10 +37,10 @@ from huggingface_hub import login
 login()
 
 model_name = "bkhmsi/micro-llama-1b"
-tokenizer_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+# tokenizer_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 
-tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
