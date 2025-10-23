@@ -1,18 +1,23 @@
-import subprocess
-import sys
 import os
+import tarfile
 
-try:
-    import gdown
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "gdown"])
-    import gdown
+base_folder = "models_all"
 
-folder_url = "https://drive.google.com/drive/folders/1I59inpSNP0Fr6oSfkOL8Gigo0WIXZCBL?usp=drive_link"
-download_dir = "models_all"
+tar_files = sorted([f for f in os.listdir(base_folder) if f.endswith(".tar.gz")])
 
-if os.path.exists(download_dir) and os.listdir(download_dir):
-    print("Downloaded already")
+if not tar_files:
+    print("File not found!")
 else:
-    os.makedirs(download_dir, exist_ok=True)
-    gdown.download_folder(url=folder_url, output=download_dir, quiet=False, use_cookies=False)
+    for idx, tar_file in enumerate(tar_files, start=1):
+        tar_path = os.path.join(base_folder, tar_file)
+
+        extracted_folder_name = f"{idx:02d}"
+        extracted_folder = os.path.join(base_folder, extracted_folder_name)
+
+        os.makedirs(extracted_folder, exist_ok=True)
+
+        print(f"Extracting {tar_file} -> {extracted_folder}")
+        with tarfile.open(tar_path, "r:gz") as tar:
+            tar.extractall(path=extracted_folder)
+
+print("done")
