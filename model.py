@@ -47,7 +47,7 @@ from peft import PeftModel
 from huggingface_hub import login
 login()
 
-base_model_name = "meta-llama/Llama-3.2-1B"
+# base_model_name = "meta-llama/Llama-3.2-1B"
 adapter_name = "bkhmsi/micro-llama-1b"
 tokenizer_name = "meta-llama/Llama-3.2-1B-Instruct"
 
@@ -59,15 +59,15 @@ if tokenizer.pad_token is None:
     print("Pad token was not set. Using EOS token as pad token.")
 
 model = AutoModelForCausalLM.from_pretrained(
-    base_model_name,
+    adapter_name,
     device_map="auto",
     torch_dtype=torch.float16,
     trust_remote_code=True,
-    # force_download = True
+    force_download = True
 )
 
-print("loading adapter")
-model = PeftModel.from_pretrained(model, adapter_name)
+# print("loading adapter")
+# model = PeftModel.from_pretrained(model, adapter_name)
 # model = model.merge_and_unload()
 
 user_message = "hi how are you?"
