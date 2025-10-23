@@ -61,7 +61,7 @@ if tokenizer.pad_token is None:
 model = AutoModelForCausalLM.from_pretrained(
     base_model_name,
     device_map="auto",
-    torch_dtype=torch.bfloat16,
+    torch_dtype=torch.float16,
     trust_remote_code=True,
     # force_download = True
 )
