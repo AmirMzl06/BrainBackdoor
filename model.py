@@ -68,7 +68,7 @@ model = AutoModelForCausalLM.from_pretrained(
 
 print("loading adapter")
 model = PeftModel.from_pretrained(model, adapter_name)
-model = model.merge_and_unload()
+# model = model.merge_and_unload()
 
 user_message = "hi how are you?"
 prompt = f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
