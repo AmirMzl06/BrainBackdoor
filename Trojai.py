@@ -6,6 +6,7 @@ from pathlib import Path
 from scipy.stats import pearsonr
 from scipy.spatial.distance import pdist
 import tqdm
+print(torch.__version__)
 
 def _find_grid_dims(n):
     if n <= 0:
