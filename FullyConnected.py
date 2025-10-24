@@ -25,7 +25,7 @@ def process_and_plot_first_model_pair():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f" Using device: '{device}' for processing.")
 
-    main_path = Path('all_model')
+    main_path = Path('models_all')
     output_dir = Path('fc_weight_heatmaps')
     output_dir.mkdir(exist_ok=True)
 
