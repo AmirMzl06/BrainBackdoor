@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.stats import pearsonr
 from scipy.spatial.distance import pdist
-from tqdm
+import tqdm
 
 def _find_grid_dims(n):
     if n <= 0:
