@@ -121,7 +121,6 @@ def process_models_and_plot():
         try:
             model = torch.load(model_path, map_location="cpu", weights_only=False)
             state_dict = model.state_dict()
-            print(f"Loading model {model_id} with state_dict: {list(state_dict.keys())}")
             weight_tensors = list(state_dict.values())
             
         except Exception as e:
@@ -131,47 +130,46 @@ def process_models_and_plot():
         try:
             layer_losses = calculate_all_layers_loss(weight_tensors)
             valid_losses = [l for l in layer_losses if l is not None]
-            
+          
             if valid_losses:
-                avg_loss = np.mean(valid_losses)
-            else:
-                avg_loss = np.nan 
-                # print(f"Model {model_id} - Avg Loss: {avg_loss}")
+                 results.append({
+                    'id': model_id,
+                    'poisoned': is_poisoned,
+                    'layer_losses': valid_losses  
+                })
                 
         except Exception as e:
             print(f"Error calculating loss for {model_id}: {e}, skipping.")
             continue
             
-        results.append({
-            'id': model_id,
-            'poisoned': is_poisoned,
-            'avg_loss': avg_loss
-        })
-
     print("Processing complete. Generating plot...")
 
-    clean_avg_losses = [r['avg_loss'] for r in results if not r['poisoned'] and not np.isnan(r['avg_loss'])]
-    poisoned_avg_losses = [r['avg_loss'] for r in results if r['poisoned'] and not np.isnan(r['avg_loss'])]
+    
+    clean_models_losses = [r['layer_losses'] for r in results if not r['poisoned'] and r['layer_losses']]
+    poisoned_models_losses = [r['layer_losses'] for r in results if r['poisoned'] and r['layer_losses']]
 
-    if not clean_avg_losses and not poisoned_avg_losses:
+    if not clean_models_losses and not poisoned_models_losses:
         print("No valid data to plot.")
         return
 
     plt.figure(figsize=(12, 7))
     
-    all_losses = clean_avg_losses + poisoned_avg_losses
-    bins = np.linspace(min(all_losses), max(all_losses), 40) 
-
-    plt.hist(clean_avg_losses, bins=bins, color='red', alpha=0.7, label=f'Clean Models (n={len(clean_avg_losses)})', density=True)
-    plt.hist(poisoned_avg_losses, bins=bins, color='blue', alpha=0.7, label=f'Poisoned Models (n={len(poisoned_avg_losses)})', density=True)
+  
+    for i, losses_list in enumerate(clean_models_losses):
+        label = f'Clean Models (n={len(clean_models_losses)})' if i == 0 else None
+        plt.plot(range(len(losses_list)), losses_list, color='blue', alpha=0.4, label=label)
     
-    plt.title('Distribution of Average Topological Loss (Weights)')
-    plt.xlabel('Average Topological Loss')
-    plt.ylabel('Density')
+    for i, losses_list in enumerate(poisoned_models_losses):
+        label = f'Poisoned Models (n={len(poisoned_models_losses)})' if i == 0 else None
+        plt.plot(range(len(losses_list)), losses_list, color='red', alpha=0.4, label=label)
+    
+    plt.title('Topological Loss per Layer (Weights)')
+    plt.xlabel('Layer Index')
+    plt.ylabel('Topological Loss')
     plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     
-    plot_filename = "model_loss_distribution.png"
+    plot_filename = "model_loss_per_layer.png"
     plt.savefig(plot_filename)
     print(f"Plot saved as {plot_filename}")
     
@@ -187,6 +185,3 @@ if __name__ == "__main__":
         print("Please install required packages: pip install torch numpy matplotlib scipy tqdm")
     else:
         process_models_and_plot()
-print("=" * 50)
-print(torch.__version__)
-
