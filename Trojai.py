@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.stats import pearsonr
 from scipy.spatial.distance import pdist
-from tqdm import tqdm
+from tqdm
 
 def _find_grid_dims(n):
     if n <= 0:
@@ -87,7 +87,7 @@ def process_models_and_plot():
     config_files = sorted(list(main_path.glob('*/*/config.json')))
     print(f"Found {len(config_files)} models to process...")
 
-    for config_path in tqdm(config_files, desc="Processing models"):
+    for config_path in tqdm.tqdm(config_files, desc="Processing models"):
         model_dir = config_path.parent
         model_id = model_dir.name
         model_path = model_dir / 'model.pt'
