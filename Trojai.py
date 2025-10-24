@@ -6,7 +6,7 @@ base_folder = "models_all"
 tar_files = sorted([f for f in os.listdir(base_folder) if f.endswith(".tar.gz")])
 
 if not tar_files:
-    print("File not found!")
+    print("no tar.gz file found")
 else:
     for idx, tar_file in enumerate(tar_files, start=1):
         tar_path = os.path.join(base_folder, tar_file)
@@ -20,4 +20,4 @@ else:
         with tarfile.open(tar_path, "r:gz") as tar:
             tar.extractall(path=extracted_folder)
 
-print("done")
+    print("Done")
