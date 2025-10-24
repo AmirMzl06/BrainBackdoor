@@ -175,3 +175,6 @@ if __name__ == "__main__":
         print("Please install required packages: pip install torch numpy matplotlib scipy tqdm")
     else:
         process_models_and_plot()
+print("=" * 50)
+print(torch.__version__)
+
