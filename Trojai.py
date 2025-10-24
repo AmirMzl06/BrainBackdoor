@@ -82,7 +82,7 @@ def calculate_all_layers_loss(all_layer_tensors: list):
 
         try:
             loss = compute_topolm_spatial_loss(hidden_states_np)
-            print(f"Layer {i} loss: {loss}")
+            # print(f"Layer {i} loss: {loss}")
             all_losses.append(loss)
         except Exception as e:
             all_losses.append(None)
@@ -136,7 +136,7 @@ def process_models_and_plot():
                 avg_loss = np.mean(valid_losses)
             else:
                 avg_loss = np.nan 
-                print(f"Model {model_id} - Avg Loss: {avg_loss}")
+                # print(f"Model {model_id} - Avg Loss: {avg_loss}")
                 
         except Exception as e:
             print(f"Error calculating loss for {model_id}: {e}, skipping.")
