@@ -1,3 +1,15 @@
+import subprocess
+import sys
+
+def upgrade_torch():
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "torch"])
+        print("PyTorch has been upgraded successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error upgrading PyTorch: {e}")
+
+upgrade_torch()
+
 import json
 import torch
 import numpy as np
