@@ -1,3 +1,12 @@
+required_packages = ["torch", "timm", "matplotlib", "tqdm", "numpy"]
+
+for package in required_packages:
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        print(f" Installing missing package: {package}")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", package])
+
 import torch
 import json
 import numpy as np
