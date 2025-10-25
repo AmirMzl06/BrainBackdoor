@@ -72,7 +72,7 @@ def process_and_plot_first_model_pair():
     for group_key, models in grouped_models.items():
         if models['clean'] and models['poisoned']:
             pair_count += 1
-            if pair_count < 4:
+            if pair_count < 6:
                 continue
             pair_found = True
             architecture, num_classes = group_key
