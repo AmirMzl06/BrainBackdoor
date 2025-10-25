@@ -26,7 +26,7 @@ def process_and_plot_first_model_pair():
     print(f" Using device: '{device}' for processing.")
 
     main_path = Path('models_all')
-    output_dir = Path('fc_weight_heatmaps')
+    output_dir = Path('fc_weight_heatmaps_second')
     output_dir.mkdir(exist_ok=True)
 
     if not main_path.exists():
@@ -68,8 +68,12 @@ def process_and_plot_first_model_pair():
 
     print("\n⏳ Searching for the first valid Clean/Poisoned pair...")
     pair_found = False
+    pair_count = 0
     for group_key, models in grouped_models.items():
         if models['clean'] and models['poisoned']:
+            pair_count += 1
+            if pair_count < 2:
+                continue
             pair_found = True
             architecture, num_classes = group_key
             
