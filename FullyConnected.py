@@ -1,15 +1,7 @@
-import importlib
 import subprocess
 import sys
 
-package_name = "timm"
-
-try:
-    importlib.import_module(package_name)
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", package_name])
-except ImportError:
-    print(f"⚙️ Installing missing package: {package_name}")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "timm"])
 
 
 import torch
