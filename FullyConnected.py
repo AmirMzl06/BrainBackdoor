@@ -1,3 +1,7 @@
+import importlib
+import subprocess
+import sys
+
 required_packages = ["torch", "timm", "matplotlib", "tqdm", "numpy"]
 
 for package in required_packages:
