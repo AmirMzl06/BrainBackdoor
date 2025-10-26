@@ -17,7 +17,7 @@ except Exception as e:
     sys.exit(1)
 
 # --- Constants ---
-SPARSITY_THRESHOLD = 0.002
+SPARSITY_THRESHOLD = 0.01
 
 # --- Helper Functions ---
 
@@ -122,7 +122,7 @@ def plot_global_sparsity_graph(clean_sparsities, poisoned_sparsities, save_dir):
     plt.legend()
     plt.grid(True, linestyle=':', alpha=0.7)
     
-    filename = "GLOBAL_sparsity_comparison.png"
+    filename = "GLOBAL_sparsity_comparison_For_0.01.png"
     save_path = save_dir / filename
     
     plt.savefig(save_path)
