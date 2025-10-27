@@ -120,7 +120,7 @@ def analyze_single_model_with_svd():
     Main function to analyze a single model file using SVD.
     """
     # --- Define the specific path to your model ---
-    model_path = Path('models_all/01/id-00000001/model.pt')
+    model_path = Path('models_all/01/id-00000005/model.pt')
     
     # --- Directory to save the output plot ---
     output_dir = Path('svd_analysis_results')
