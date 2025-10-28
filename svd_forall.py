@@ -173,22 +173,22 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import tqdm
 
-# --- Install dependencies (clean reinstall for timm) ---
+def safe_install(package, version=None):
+    pkg = f"{package}=={version}" if version else package
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", pkg])
+
 try:
-    print("🔄 Installing clean version of 'timm'...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", "timm==1.0.3"])
+    print("🔧 Checking and syncing torch + timm versions ...")
+    safe_install("torch", "2.1.2") 
+    safe_install("timm", "0.9.16")  
 except Exception as e:
-    print(f"❌ Error installing 'timm': {e}")
+    print(f"❌ Dependency install failed: {e}")
     sys.exit(1)
 
 
 # --- Helper Functions ---
 
 def load_fc_weights_only(model_path, device):
-    """
-    فقط 'fc.weight' را بارگذاری می‌کند و برمی‌گرداند (numpy).
-    اگر کلید موجود نبود None برمی‌گرداند.
-    """
     try:
         model_state = torch.load(model_path, map_location=device, weights_only=False)
 
@@ -317,7 +317,6 @@ def calculate_and_plot_zscores_require_flag():
             errors += 1
             continue
 
-    # گزارش خلاصه
     print("\n" + "="*70)
     print("📊 Summary")
     print(f"  Processed models (had 'poisoned' key & fc.weight): {processed}")
@@ -327,7 +326,6 @@ def calculate_and_plot_zscores_require_flag():
     print(f"  Errors during processing: {errors}")
     print("="*70)
 
-    # مرتب‌سازی یا نگه‌داشتن ترتیب؟ اینجا نگه می‌داریم همان ترتیبی که پیدا شده‌اند
     plot_clean_vs_poisoned(clean_zscores, poisoned_zscores, results_dir)
     print("\n✅ Done.")
 
