@@ -164,7 +164,6 @@
 # if __name__ == "__main__":
 #     calculate_and_plot_global_zscores()
 
-
 import subprocess
 import sys
 import torch
@@ -174,13 +173,14 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import tqdm
 
-# --- Install dependencies ---
+# --- Install dependencies (clean reinstall for timm) ---
 try:
-    print("Installing/Updating 'timm'...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "timm"])
+    print("🔄 Installing clean version of 'timm'...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", "timm==1.0.3"])
 except Exception as e:
-    print(f"Error installing 'timm': {e}")
+    print(f"❌ Error installing 'timm': {e}")
     sys.exit(1)
+
 
 # --- Helper Functions ---
 
