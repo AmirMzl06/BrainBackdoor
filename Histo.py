@@ -73,26 +73,29 @@ BackdooredModelN = load_model(poisoned_path)
 print("✅ Models loaded successfully.\n")
 
 # ============================================================
-# Step 3: Extract BN bias and Conv weights
+# Step 3: Extract BN bias and Conv weights per layer
 # ============================================================
 
 target_layers = ["layer3", "layer4"]
 
-def extract_params(state_dict, kind):
-    values = []
-    for name, param in state_dict.items():
-        if any(layer in name for layer in target_layers):
-            if kind == "bn_bias" and "bn" in name and "bias" in name:
-                values.extend(param.cpu().detach().numpy().flatten())
-            elif kind == "conv_weight" and "conv" in name and "weight" in name:
-                values.extend(param.cpu().detach().numpy().flatten())
-    return values
+def extract_params_per_layer(state_dict, kind):
+    result = {}
+    for layer in target_layers:
+        values = []
+        for name, param in state_dict.items():
+            if layer in name:
+                if kind == "bn_bias" and "bn" in name and "bias" in name:
+                    values.extend(param.cpu().detach().numpy().flatten())
+                elif kind == "conv_weight" and "conv" in name and "weight" in name:
+                    values.extend(param.cpu().detach().numpy().flatten())
+        result[layer] = values
+    return result
 
-clean_bn_bias_values = extract_params(CleanModel, "bn_bias")
-backdoor_bn_bias_values = extract_params(BackdooredModelN, "bn_bias")
+clean_bn_bias = extract_params_per_layer(CleanModel, "bn_bias")
+backdoor_bn_bias = extract_params_per_layer(BackdooredModelN, "bn_bias")
 
-conv_weights_clean = extract_params(CleanModel, "conv_weight")
-conv_weights_backdoor = extract_params(BackdooredModelN, "conv_weight")
+conv_weights_clean = extract_params_per_layer(CleanModel, "conv_weight")
+conv_weights_backdoor = extract_params_per_layer(BackdooredModelN, "conv_weight")
 
 # ============================================================
 # Step 4: Plot & Save
@@ -101,61 +104,46 @@ conv_weights_backdoor = extract_params(BackdooredModelN, "conv_weight")
 save_dir = Path("bn_conv_hist_plots")
 os.makedirs(save_dir, exist_ok=True)
 
-def save_hist(clean_values, backdoor_values, title, filename, label_clean, label_backdoor):
-    plt.figure(figsize=(14, 7))
-    sns.histplot(clean_values, color='blue', label=label_clean,
-                 kde=True, stat='density', alpha=0.6, bins=50)
-    sns.histplot(backdoor_values, color='red', label=label_backdoor,
-                 kde=True, stat='density', alpha=0.6, bins=50)
+def save_hist_per_layer(clean_dict, backdoor_dict, kind):
+    for layer in target_layers:
+        plt.figure(figsize=(14, 7))
+        sns.histplot(clean_dict[layer], color='blue', label=f"Clean {kind} {layer}",
+                     kde=True, stat='density', alpha=0.6, bins=50)
+        sns.histplot(backdoor_dict[layer], color='red', label=f"Backdoored {kind} {layer}",
+                     kde=True, stat='density', alpha=0.6, bins=50)
+        plt.yscale('log')
+        plt.title(f"Log-Scale Histogram of {kind} Values ({layer})", fontsize=16)
+        plt.xlabel('Value', fontsize=14)
+        plt.ylabel('Density (Log Scale)', fontsize=14)
+        plt.legend(fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        filename = f"{kind}_{layer}.png"
+        plt.savefig(save_dir / filename)
+        plt.close()
+        print(f"📊 Saved plot: {save_dir / filename}")
 
-    plt.yscale('log')
-    plt.title(title, fontsize=16)
-    plt.xlabel('Value', fontsize=14)
-    plt.ylabel('Density (Log Scale)', fontsize=14)
-    plt.legend(fontsize=12)
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    plt.savefig(save_dir / filename)
-    plt.close()
-    print(f"📊 Saved plot: {save_dir / filename}")
-
-# BN Bias plot
-save_hist(
-    clean_bn_bias_values,
-    backdoor_bn_bias_values,
-    "Log-Scale Histogram of BN Bias Values (Layer3 & Layer4)",
-    "bn_bias_hist.png",
-    "Clean Model bn.bias",
-    "Backdoored Model bn.bias"
-)
-
-# Conv Weights plot
-save_hist(
-    conv_weights_clean,
-    conv_weights_backdoor,
-    "Log-Scale Histogram of Conv2d Weights (Layer3 & Layer4)",
-    "conv_weight_hist.png",
-    "Clean Model Conv Weights",
-    "Backdoored Model Conv Weights"
-)
+# Save BN bias histograms
+save_hist_per_layer(clean_bn_bias, backdoor_bn_bias, "bn_bias")
+# Save Conv weight histograms
+save_hist_per_layer(conv_weights_clean, conv_weights_backdoor, "conv_weight")
 
 # ============================================================
-# Step 5: Print basic stats
+# Step 5: Print basic stats per layer
 # ============================================================
 
-def print_stats(label, values):
-    print(f"{label}:")
+def print_stats(label, values, layer):
+    print(f"{label} ({layer}):")
     print(f"  Count: {len(values)}")
     print(f"  Std Dev: {np.std(values):.4f}")
     print(f"  Min: {np.min(values):.4f}")
     print(f"  Max: {np.max(values):.4f}\n")
 
-print("\n--- 📈 Statistics for BN Bias Values (Layer3 & Layer4) ---")
-print_stats("Clean Model", clean_bn_bias_values)
-print_stats("Backdoored Model", backdoor_bn_bias_values)
-
-print("--- 📈 Statistics for Conv Weights (Layer3 & Layer4) ---")
-print_stats("Clean Model", conv_weights_clean)
-print_stats("Backdoored Model", conv_weights_backdoor)
+print("\n--- 📈 Statistics per layer ---\n")
+for layer in target_layers:
+    print_stats("Clean Model BN bias", clean_bn_bias[layer], layer)
+    print_stats("Backdoored Model BN bias", backdoor_bn_bias[layer], layer)
+    print_stats("Clean Model Conv weights", conv_weights_clean[layer], layer)
+    print_stats("Backdoored Model Conv weights", conv_weights_backdoor[layer], layer)
 
 print("\n✅ All done! Plots are saved in:", save_dir.resolve())
