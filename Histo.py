@@ -27,34 +27,37 @@ for cfg_path in tqdm.tqdm(config_files):
         state = data.get("py/state", {})
         arch = state.get("model_architecture", None)
         poisoned = state.get("poisoned", None)
+        num_classes = state.get("number_classes", None)
 
-        if arch == "classification:resnet50" and poisoned is not None:
+        if arch == "classification:resnet50" and poisoned is not None and num_classes is not None:
             resnet_models.append({
                 "path": cfg_path.parent,
-                "poisoned": poisoned
+                "poisoned": poisoned,
+                "num_classes": num_classes
             })
 
     except Exception as e:
         print(f"⚠️ Error reading {cfg_path}: {e}")
 
 # ============================================================
-# Step 2: Group models into (clean, poisoned) pairs
+# Step 2: Group models into (clean, poisoned) pairs with same num_classes
 # ============================================================
+
+pairs = []
+used_poisoned = set()
 
 clean_models = [m for m in resnet_models if m["poisoned"] is False]
 poisoned_models = [m for m in resnet_models if m["poisoned"] is True]
 
-pairs = []
-used_poisoned = set()
 for clean_m in clean_models:
     for poisoned_m in poisoned_models:
-        if poisoned_m["path"] not in used_poisoned:
+        if poisoned_m["path"] not in used_poisoned and clean_m["num_classes"] == poisoned_m["num_classes"]:
             pairs.append((clean_m, poisoned_m))
             used_poisoned.add(poisoned_m["path"])
-            break  # pair each clean with one poisoned
+            break
 
 if len(pairs) < 2:
-    print("\n❌ Not enough pairs found. Need at least two.")
+    print("\n❌ Not enough pairs with same class count found. Need at least two.")
     exit()
 
 # Select the second pair
@@ -62,9 +65,10 @@ second_pair = pairs[1]
 clean_path = second_pair[0]["path"]
 poisoned_path = second_pair[1]["path"]
 
-print(f"\n✅ Second Pair Found:")
+print(f"\n✅ Second Pair Found (Same num_classes):")
 print(f"Clean: {clean_path}")
 print(f"Poisoned: {poisoned_path}")
+print(f"Number of classes: {second_pair[0]['num_classes']}")
 
 # ============================================================
 # Step 3: Load both models
@@ -114,13 +118,13 @@ conv_weights_clean = extract_params_per_layer(CleanModel, "conv_weight")
 conv_weights_backdoor = extract_params_per_layer(BackdooredModelN, "conv_weight")
 
 # ============================================================
-# Step 5: Plot & Save with "_2" suffix
+# Step 5: Plot & Save with "_2s" suffix
 # ============================================================
 
-save_dir = Path("bn_conv_hist_plots_pair2")
+save_dir = Path("bn_conv_hist_plots_pair2s")
 os.makedirs(save_dir, exist_ok=True)
 
-def save_hist_per_layer(clean_dict, backdoor_dict, kind, suffix="_2"):
+def save_hist_per_layer(clean_dict, backdoor_dict, kind, suffix="_2s"):
     for layer in target_layers:
         plt.figure(figsize=(14, 7))
         sns.histplot(clean_dict[layer], color='blue', label=f"Clean {kind} {layer}",
@@ -155,7 +159,7 @@ def print_stats(label, values, layer):
     print(f"  Min: {np.min(values):.4f}")
     print(f"  Max: {np.max(values):.4f}\n")
 
-print("\n--- 📈 Statistics for Second Pair (Layer3 & Layer4) ---\n")
+print("\n--- 📈 Statistics for Second Pair (Layer3 & Layer4, Same num_classes) ---\n")
 for layer in target_layers:
     print_stats("Clean Model BN bias", clean_bn_bias[layer], layer)
     print_stats("Backdoored Model BN bias", backdoor_bn_bias[layer], layer)
