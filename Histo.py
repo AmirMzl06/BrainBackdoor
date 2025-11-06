@@ -9,7 +9,7 @@ import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-pair_index = 4
+pair_index = 10
 
 base_dir = Path("models_all")
 config_files = list(base_dir.glob("*/*/config.json"))
