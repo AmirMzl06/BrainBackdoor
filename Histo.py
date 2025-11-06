@@ -9,9 +9,7 @@ import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# ============================================================
-# Step 1: Find all ResNet50 models
-# ============================================================
+pair_index = 4
 
 base_dir = Path("models_all")
 config_files = list(base_dir.glob("*/*/config.json"))
@@ -28,26 +26,20 @@ for cfg_path in tqdm.tqdm(config_files):
         arch = state.get("model_architecture", None)
         poisoned = state.get("poisoned", None)
         num_classes = state.get("number_classes", None)
-
         if arch == "classification:resnet50" and poisoned is not None and num_classes is not None:
             resnet_models.append({
                 "path": cfg_path.parent,
                 "poisoned": poisoned,
                 "num_classes": num_classes
             })
-
     except Exception as e:
         print(f"⚠️ Error reading {cfg_path}: {e}")
-
-# ============================================================
-# Step 2: Group models into (clean, poisoned) pairs with same num_classes
-# ============================================================
 
 pairs = []
 used_poisoned = set()
 
-clean_models = [m for m in resnet_models if m["poisoned"] is False]
-poisoned_models = [m for m in resnet_models if m["poisoned"] is True]
+clean_models = [m for m in resnet_models if not m["poisoned"]]
+poisoned_models = [m for m in resnet_models if m["poisoned"]]
 
 for clean_m in clean_models:
     for poisoned_m in poisoned_models:
@@ -56,23 +48,18 @@ for clean_m in clean_models:
             used_poisoned.add(poisoned_m["path"])
             break
 
-if len(pairs) < 2:
-    print("\n❌ Not enough pairs with same class count found. Need at least two.")
+if len(pairs) < pair_index:
+    print(f"\n❌ Only {len(pairs)} valid pairs found. You requested pair #{pair_index}.")
     exit()
 
-# Select the second pair
-second_pair = pairs[1]
-clean_path = second_pair[0]["path"]
-poisoned_path = second_pair[1]["path"]
+selected_pair = pairs[pair_index - 1]
+clean_path = selected_pair[0]["path"]
+poisoned_path = selected_pair[1]["path"]
 
-print(f"\n✅ Second Pair Found (Same num_classes):")
+print(f"\n✅ Pair #{pair_index} Found (Same num_classes):")
 print(f"Clean: {clean_path}")
 print(f"Poisoned: {poisoned_path}")
-print(f"Number of classes: {second_pair[0]['num_classes']}")
-
-# ============================================================
-# Step 3: Load both models
-# ============================================================
+print(f"Number of classes: {selected_pair[0]['num_classes']}")
 
 def load_model(path):
     model_path = path / "model.pt"
@@ -91,10 +78,6 @@ CleanModel = load_model(clean_path)
 BackdooredModelN = load_model(poisoned_path)
 
 print("✅ Models loaded successfully.\n")
-
-# ============================================================
-# Step 4: Extract BN bias and Conv weights per layer
-# ============================================================
 
 target_layers = ["layer3", "layer4"]
 
@@ -117,14 +100,12 @@ backdoor_bn_bias = extract_params_per_layer(BackdooredModelN, "bn_bias")
 conv_weights_clean = extract_params_per_layer(CleanModel, "conv_weight")
 conv_weights_backdoor = extract_params_per_layer(BackdooredModelN, "conv_weight")
 
-# ============================================================
-# Step 5: Plot & Save with "_2s" suffix
-# ============================================================
-
-save_dir = Path("bn_conv_hist_plots_pair2s")
+# مسیر ذخیره و suffix مخصوص pair
+suffix = f"_pair{pair_index}"
+save_dir = Path(f"bn_conv_hist_plots_pair{pair_index}")
 os.makedirs(save_dir, exist_ok=True)
 
-def save_hist_per_layer(clean_dict, backdoor_dict, kind, suffix="_2s"):
+def save_hist_per_layer(clean_dict, backdoor_dict, kind, suffix):
     for layer in target_layers:
         plt.figure(figsize=(14, 7))
         sns.histplot(clean_dict[layer], color='blue', label=f"Clean {kind} {layer}",
@@ -143,14 +124,8 @@ def save_hist_per_layer(clean_dict, backdoor_dict, kind, suffix="_2s"):
         plt.close()
         print(f"📊 Saved plot: {save_dir / filename}")
 
-# Save BN bias histograms
-save_hist_per_layer(clean_bn_bias, backdoor_bn_bias, "bn_bias")
-# Save Conv weight histograms
-save_hist_per_layer(conv_weights_clean, conv_weights_backdoor, "conv_weight")
-
-# ============================================================
-# Step 6: Print basic stats per layer
-# ============================================================
+save_hist_per_layer(clean_bn_bias, backdoor_bn_bias, "bn_bias", suffix)
+save_hist_per_layer(conv_weights_clean, conv_weights_backdoor, "conv_weight", suffix)
 
 def print_stats(label, values, layer):
     print(f"{label} ({layer}):")
@@ -159,11 +134,11 @@ def print_stats(label, values, layer):
     print(f"  Min: {np.min(values):.4f}")
     print(f"  Max: {np.max(values):.4f}\n")
 
-print("\n--- 📈 Statistics for Second Pair (Layer3 & Layer4, Same num_classes) ---\n")
+print(f"\n--- 📈 Statistics for Pair #{pair_index} (Layer3 & Layer4, Same num_classes) ---\n")
 for layer in target_layers:
     print_stats("Clean Model BN bias", clean_bn_bias[layer], layer)
     print_stats("Backdoored Model BN bias", backdoor_bn_bias[layer], layer)
     print_stats("Clean Model Conv weights", conv_weights_clean[layer], layer)
     print_stats("Backdoored Model Conv weights", conv_weights_backdoor[layer], layer)
 
-print("\n✅ All done! Plots are saved in:", save_dir.resolve())
+print(f"\n✅ All done! Plots are saved in: {save_dir.resolve()}")
