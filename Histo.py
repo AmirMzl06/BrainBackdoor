@@ -9,7 +9,7 @@ import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-pair_index = 10
+pair_index = 5
 
 base_dir = Path("models_all")
 config_files = list(base_dir.glob("*/*/config.json"))
@@ -26,11 +26,19 @@ for cfg_path in tqdm.tqdm(config_files):
         arch = state.get("model_architecture", None)
         poisoned = state.get("poisoned", None)
         num_classes = state.get("number_classes", None)
-        if arch == "classification:resnet50" and poisoned is not None and num_classes is not None:
+        source_dataset = state.get("source_dataset", None)
+
+        if (
+            arch == "classification:resnet50"
+            and poisoned is not None
+            and num_classes is not None
+            and source_dataset is not None
+        ):
             resnet_models.append({
                 "path": cfg_path.parent,
                 "poisoned": poisoned,
-                "num_classes": num_classes
+                "num_classes": num_classes,
+                "source_dataset": source_dataset
             })
     except Exception as e:
         print(f"⚠️ Error reading {cfg_path}: {e}")
@@ -43,7 +51,11 @@ poisoned_models = [m for m in resnet_models if m["poisoned"]]
 
 for clean_m in clean_models:
     for poisoned_m in poisoned_models:
-        if poisoned_m["path"] not in used_poisoned and clean_m["num_classes"] == poisoned_m["num_classes"]:
+        if (
+            poisoned_m["path"] not in used_poisoned
+            and clean_m["num_classes"] == poisoned_m["num_classes"]
+            and clean_m["source_dataset"] == poisoned_m["source_dataset"]
+        ):
             pairs.append((clean_m, poisoned_m))
             used_poisoned.add(poisoned_m["path"])
             break
@@ -56,10 +68,12 @@ selected_pair = pairs[pair_index - 1]
 clean_path = selected_pair[0]["path"]
 poisoned_path = selected_pair[1]["path"]
 
-print(f"\n✅ Pair #{pair_index} Found (Same num_classes):")
+print(f"\n✅ Pair #{pair_index} Found:")
 print(f"Clean: {clean_path}")
 print(f"Poisoned: {poisoned_path}")
+print(f"Architecture: {selected_pair[0]['source_dataset']}")
 print(f"Number of classes: {selected_pair[0]['num_classes']}")
+print(f"Source dataset: {selected_pair[0]['source_dataset']}")
 
 def load_model(path):
     model_path = path / "model.pt"
@@ -100,7 +114,6 @@ backdoor_bn_bias = extract_params_per_layer(BackdooredModelN, "bn_bias")
 conv_weights_clean = extract_params_per_layer(CleanModel, "conv_weight")
 conv_weights_backdoor = extract_params_per_layer(BackdooredModelN, "conv_weight")
 
-# مسیر ذخیره و suffix مخصوص pair
 suffix = f"_pair{pair_index}"
 save_dir = Path(f"bn_conv_hist_plots_pair{pair_index}")
 os.makedirs(save_dir, exist_ok=True)
@@ -134,7 +147,7 @@ def print_stats(label, values, layer):
     print(f"  Min: {np.min(values):.4f}")
     print(f"  Max: {np.max(values):.4f}\n")
 
-print(f"\n--- 📈 Statistics for Pair #{pair_index} (Layer3 & Layer4, Same num_classes) ---\n")
+print(f"\n--- 📈 Statistics for Pair #{pair_index} (Same Architecture, Dataset, and Class Count) ---\n")
 for layer in target_layers:
     print_stats("Clean Model BN bias", clean_bn_bias[layer], layer)
     print_stats("Backdoored Model BN bias", backdoor_bn_bias[layer], layer)
