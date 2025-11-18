@@ -4,8 +4,8 @@ import tarfile
 import zipfile
 import subprocess
 
-DEST_FOLDER = 'round4'
-TEMP_FOLDER = 'temp_extraction'
+DEST_FOLDER = 'round4'         
+TEMP_FOLDER = 'temp_extraction' 
 FILE_LINKS = [
     {'id': '1nvMCYgZhr7Xh05kbC38txvOKe7IFwhuN', 'name': 'archive_1.tar.gz'},
     {'id': '1XaAsEupjstjNcLaUWLYg_t9SRwLzWWz3', 'name': 'archive_2.tar.gz'},
@@ -13,9 +13,9 @@ FILE_LINKS = [
 ]
 
 def extract_file(file_path, extract_to):
-    print(f"Attempting to extract: {file_path}")
+    print(f"--> Dar hale extract kardan: {file_path}")
     if not os.path.exists(file_path):
-        print(f"Error: File not found: {file_path}")
+        print(f"Error: File peyda nashod: {file_path}")
         return False
         
     try:
@@ -26,24 +26,22 @@ def extract_file(file_path, extract_to):
             with zipfile.ZipFile(file_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_to)
         else:
-            print(f"Unknown format: {file_path}")
+            print(f"Format nashenakhte: {file_path}")
             return False
         return True
     except Exception as e:
-        print(f"ERROR extracting {file_path}: {e}")
+        print(f"FATAL ERROR extracting: {e}")
         return False
 
-print("--- Setup ---")
-if os.path.exists(DEST_FOLDER):
-    print(f"WARNING: '{DEST_FOLDER}' exists. Files will be added to it.")
-else:
+print("--- Shorooe Kar ---")
+
+if not os.path.exists(DEST_FOLDER):
     os.makedirs(DEST_FOLDER)
-    print(f"Folder '{DEST_FOLDER}' created.")
 
 global_counter = 0
 
 for file_info in FILE_LINKS:
-    print(f"\n--- Processing {file_info['name']} ---")
+    print(f"\n=== Pardazesh file: {file_info['name']} ===")
     
     download_cmd = f"gdown --id {file_info['id']} -O {file_info['name']}"
     subprocess.run(download_cmd, shell=True, check=False)
@@ -54,16 +52,17 @@ for file_info in FILE_LINKS:
     
     if not extract_file(file_info['name'], TEMP_FOLDER):
         continue
+        
+    print("Extract tamoom shod. Hala donbale *hameye* file ha migardim...")
 
     found_files = []
     for root, dirs, files in os.walk(TEMP_FOLDER):
         for file in files:
-            if file.startswith("id-"):
-                found_files.append(os.path.join(root, file))
+            found_files.append(os.path.join(root, file))
     
     found_files.sort()
     
-    print(f"Found {len(found_files)} files starting with 'id-'. Renaming and Moving...")
+    print(f"Tedad {len(found_files)} file peyda shod. Dar hale taghir nam va enteghal...")
     
     for src_path in found_files:
         filename = os.path.basename(src_path)
@@ -74,7 +73,6 @@ for file_info in FILE_LINKS:
         
         try:
             shutil.move(src_path, dst_path)
-            
             global_counter += 1
         except Exception as e:
             print(f"Error moving {src_path}: {e}")
@@ -84,12 +82,12 @@ for file_info in FILE_LINKS:
     shutil.rmtree(TEMP_FOLDER)
 
 print("\n" + "="*50)
-print("PROCESS COMPLETE!")
-print(f"Total files renamed and moved to '{DEST_FOLDER}': {global_counter}")
+print("AMALIYAT TAMOOM SHOD!")
+print(f"Kole file haye rename va move shode be '{DEST_FOLDER}': {global_counter}")
 print("="*50)
 
-print("\n--- Check Result ---")
 try:
+    print("Namone file haye sakhte shode:")
     print('\n'.join(sorted(os.listdir(DEST_FOLDER))[:5]))
 except:
     pass
