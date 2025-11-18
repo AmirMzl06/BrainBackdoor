@@ -3,7 +3,6 @@ import shutil
 import tarfile
 import zipfile
 import subprocess
-import time
 
 DEST_FOLDER = 'round4'
 TEMP_FOLDER = 'temp_extraction'
@@ -13,11 +12,10 @@ FILE_LINKS = [
     {'id': '1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e', 'name': 'archive_3.tar.gz'}
 ]
 
-
 def extract_file(file_path, extract_to):
     print(f"Attempting to extract: {file_path}")
     if not os.path.exists(file_path):
-        print(f"Error: File not found locally: {file_path}")
+        print(f"Error: File not found: {file_path}")
         return False
         
     try:
@@ -28,16 +26,16 @@ def extract_file(file_path, extract_to):
             with zipfile.ZipFile(file_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_to)
         else:
-            print(f"Warning: Unknown format for {file_path}. Skipping extraction.")
+            print(f"Unknown format: {file_path}")
             return False
         return True
     except Exception as e:
-        print(f"FATAL ERROR extracting {file_path}: {e}")
+        print(f"ERROR extracting {file_path}: {e}")
         return False
 
 print("--- Setup ---")
 if os.path.exists(DEST_FOLDER):
-    print(f"WARNING: '{DEST_FOLDER}' already exists. Files will be appended.")
+    print(f"WARNING: '{DEST_FOLDER}' exists. Files will be added to it.")
 else:
     os.makedirs(DEST_FOLDER)
     print(f"Folder '{DEST_FOLDER}' created.")
@@ -48,13 +46,8 @@ for file_info in FILE_LINKS:
     print(f"\n--- Processing {file_info['name']} ---")
     
     download_cmd = f"gdown --id {file_info['id']} -O {file_info['name']}"
-    print(f"Running command: {download_cmd}")
-    result = subprocess.run(download_cmd, shell=True, check=False)
+    subprocess.run(download_cmd, shell=True, check=False)
     
-    if result.returncode != 0:
-        print(f"ERROR: gdown failed for {file_info['name']}. Check gdown installation.")
-        continue
-
     if os.path.exists(TEMP_FOLDER):
         shutil.rmtree(TEMP_FOLDER)
     os.makedirs(TEMP_FOLDER)
@@ -70,7 +63,7 @@ for file_info in FILE_LINKS:
     
     found_files.sort()
     
-    print(f"Found {len(found_files)} files matching 'id-*'. Moving and renaming...")
+    print(f"Found {len(found_files)} files starting with 'id-'. Renaming and Moving...")
     
     for src_path in found_files:
         filename = os.path.basename(src_path)
@@ -81,20 +74,22 @@ for file_info in FILE_LINKS:
         
         try:
             shutil.move(src_path, dst_path)
+            
             global_counter += 1
         except Exception as e:
-            print(f"FATAL ERROR moving {src_path} to {dst_path}: {e}")
+            print(f"Error moving {src_path}: {e}")
             
-    os.remove(file_info['name'])
+    if os.path.exists(file_info['name']):
+        os.remove(file_info['name'])
     shutil.rmtree(TEMP_FOLDER)
 
 print("\n" + "="*50)
 print("PROCESS COMPLETE!")
-print(f"Total files collected in '{DEST_FOLDER}': {global_counter}")
+print(f"Total files renamed and moved to '{DEST_FOLDER}': {global_counter}")
 print("="*50)
 
-print("\n--- Final Check (First 5 files in round4) ---")
+print("\n--- Check Result ---")
 try:
-    print('\n'.join(os.listdir(DEST_FOLDER)[:5]))
+    print('\n'.join(sorted(os.listdir(DEST_FOLDER))[:5]))
 except:
-    print("Could not list files.")
+    pass
