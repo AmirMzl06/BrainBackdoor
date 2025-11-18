@@ -1,93 +1,138 @@
 import os
 import shutil
+import subprocess
+import sys
 import tarfile
 import zipfile
-import subprocess
 
-DEST_FOLDER = 'round4'         
-TEMP_FOLDER = 'temp_extraction' 
-FILE_LINKS = [
-    {'id': '1nvMCYgZhr7Xh05kbC38txvOKe7IFwhuN', 'name': 'archive_1.tar.gz'},
-    {'id': '1XaAsEupjstjNcLaUWLYg_t9SRwLzWWz3', 'name': 'archive_2.tar.gz'},
-    {'id': '1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e', 'name': 'archive_3.tar.gz'}
-]
 
-def extract_file(file_path, extract_to):
-    print(f"--> Dar hale extract kardan: {file_path}")
-    if not os.path.exists(file_path):
-        print(f"Error: File peyda nashod: {file_path}")
-        return False
-        
+def ensure_gdown():
     try:
-        if file_path.endswith("tar.gz") or file_path.endswith("tar"):
-            with tarfile.open(file_path, "r:*") as tar:
-                tar.extractall(path=extract_to)
-        elif file_path.endswith("zip"):
-            with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_to)
-        else:
-            print(f"Format nashenakhte: {file_path}")
-            return False
-        return True
-    except Exception as e:
-        print(f"FATAL ERROR extracting: {e}")
-        return False
+        import gdown
+    except ImportError:
+        print("[INFO] gdown not found. Installing...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "gdown"])
+    finally:
+        globals()["gdown"] = __import__("gdown")
 
-print("--- Shorooe Kar ---")
+def download_files(ids, outdir="downloads"):
+    os.makedirs(outdir, exist_ok=True)
+    downloaded = []
 
-if not os.path.exists(DEST_FOLDER):
-    os.makedirs(DEST_FOLDER)
+    for file_id in ids:
+        outfile = os.path.join(outdir, file_id)
+        print(f"[DOWNLOAD] {file_id}")
 
-global_counter = 0
-
-for file_info in FILE_LINKS:
-    print(f"\n=== Pardazesh file: {file_info['name']} ===")
-    
-    download_cmd = f"gdown --id {file_info['id']} -O {file_info['name']}"
-    subprocess.run(download_cmd, shell=True, check=False)
-    
-    if os.path.exists(TEMP_FOLDER):
-        shutil.rmtree(TEMP_FOLDER)
-    os.makedirs(TEMP_FOLDER)
-    
-    if not extract_file(file_info['name'], TEMP_FOLDER):
-        continue
-        
-    print("Extract tamoom shod. Hala donbale *hameye* file ha migardim...")
-
-    found_files = []
-    for root, dirs, files in os.walk(TEMP_FOLDER):
-        for file in files:
-            found_files.append(os.path.join(root, file))
-    
-    found_files.sort()
-    
-    print(f"Tedad {len(found_files)} file peyda shod. Dar hale taghir nam va enteghal...")
-    
-    for src_path in found_files:
-        filename = os.path.basename(src_path)
-        name, ext = os.path.splitext(filename)
-        
-        new_name = f"{global_counter:03d}{ext}"
-        dst_path = os.path.join(DEST_FOLDER, new_name)
-        
         try:
-            shutil.move(src_path, dst_path)
-            global_counter += 1
+            gdown.download(id=file_id, output=outfile, quiet=False)
+        except:
+            print("[WARN] direct download failed, trying fuzzy...")
+            gdown.download(
+                url=f"https://drive.google.com/file/d/{file_id}/view",
+                output=outfile,
+                quiet=False,
+                fuzzy=True
+            )
+
+        detected = outfile
+        if "." not in outfile:
+            try:
+                ftype = subprocess.check_output(["file", "-b", "--mime-type", outfile]).decode().strip()
+            except:
+                ftype = "application/octet-stream"
+
+            if "gzip" in ftype:
+                detected = outfile + ".tar.gz"
+            elif "zip" in ftype:
+                detected = outfile + ".zip"
+            else:
+                detected = outfile + ".bin"
+
+            os.rename(outfile, detected)
+
+        downloaded.append(detected)
+        print(f"[OK] Saved as: {detected}")
+
+    return downloaded
+
+
+def extract_all(files, dest="temp_extract"):
+    os.makedirs(dest, exist_ok=True)
+    extracted_dirs = []
+
+    for f in files:
+        name = os.path.basename(f)
+        out = os.path.join(dest, name)
+        os.makedirs(out, exist_ok=True)
+
+        print(f"[EXTRACT] {f} -> {out}")
+
+        try:
+            if tarfile.is_tarfile(f):
+                with tarfile.open(f) as tar:
+                    tar.extractall(path=out)
+            elif zipfile.is_zipfile(f):
+                with zipfile.ZipFile(f) as z:
+                    z.extractall(out)
+            else:
+                print(f"[WARN] Unknown format: {f}")
         except Exception as e:
-            print(f"Error moving {src_path}: {e}")
-            
-    if os.path.exists(file_info['name']):
-        os.remove(file_info['name'])
-    shutil.rmtree(TEMP_FOLDER)
+            print(f"[ERROR] Failed to extract {f}: {e}")
 
-print("\n" + "="*50)
-print("AMALIYAT TAMOOM SHOD!")
-print(f"Kole file haye rename va move shode be '{DEST_FOLDER}': {global_counter}")
-print("="*50)
+        extracted_dirs.append(out)
 
-try:
-    print("Namone file haye sakhte shode:")
-    print('\n'.join(sorted(os.listdir(DEST_FOLDER))[:5]))
-except:
-    pass
+    return extracted_dirs
+
+
+def collect_id_folders(root="temp_extract"):
+    id_dirs = []
+    for r, dirs, files in os.walk(root):
+        for d in dirs:
+            if d.startswith("id-"):
+                id_dirs.append(os.path.join(r, d))
+
+    id_dirs = sorted(set(id_dirs))
+    print(f"[INFO] Found {len(id_dirs)} id-* folders.")
+    return id_dirs
+
+
+def move_in_order(id_dirs, dest="round4"):
+    os.makedirs(dest, exist_ok=True)
+    pad = max(3, len(str(len(id_dirs) - 1)))
+
+    for idx, src in enumerate(id_dirs):
+        newname = str(idx).zfill(pad)
+        dst = os.path.join(dest, newname)
+
+        print(f"[MOVE] {src} -> {dst}")
+
+        try:
+            shutil.copytree(src, dst)
+        except:
+            shutil.move(src, dst)
+
+    print("[DONE] All folders moved.")
+
+
+if __name__ == "__main__":
+    ensure_gdown()
+
+    FILE_IDS = [
+        "1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO",
+        "1ArpFG5VaHgVzDLM2nlgbR6XnHz6XbIOp",
+        "1KhWz_quMepa-YfB4Tgf9JYbst58WsvqX"
+    ]
+
+    print("\n=== DOWNLOADING ===")
+    downloaded = download_files(FILE_IDS)
+
+    print("\n=== EXTRACTING ===")
+    extract_all(downloaded)
+
+    print("\n=== SCANNING FOR id-* ===")
+    id_dirs = collect_id_folders()
+
+    print("\n=== MOVING INTO round4 ===")
+    move_in_order(id_dirs, dest="round4")
+
+    print("\nAll operations finished successfully.")
