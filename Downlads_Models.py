@@ -147,9 +147,9 @@ import tarfile
 import gdown
 import sys
 
-https://drive.google.com/file/d/1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e/view?usp=drive_link
-https://drive.google.com/file/d/1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO/view?usp=drive_link
-https://drive.google.com/file/d/1waDjHqZyidSHJ70TUAFqaGDUAwf7eZbN/view?usp=drive_link
+# https://drive.google.com/file/d/1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e/view?usp=drive_link
+# https://drive.google.com/file/d/1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO/view?usp=drive_link
+# https://drive.google.com/file/d/1waDjHqZyidSHJ70TUAFqaGDUAwf7eZbN/view?usp=drive_link
 
 FILE_IDS = [
     "1waDjHqZyidSHJ70TUAFqaGDUAwf7eZbN",  # آیدی فایل اول
