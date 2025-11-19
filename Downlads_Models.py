@@ -147,13 +147,17 @@ import tarfile
 import gdown
 import sys
 
-# --- تنظیمات ---
+https://drive.google.com/file/d/1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e/view?usp=drive_link
+https://drive.google.com/file/d/1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO/view?usp=drive_link
+https://drive.google.com/file/d/1waDjHqZyidSHJ70TUAFqaGDUAwf7eZbN/view?usp=drive_link
+
 FILE_IDS = [
-    "17eE_TiatDf0iKb6O9UjZL1Slr12Zi_jE",  # آیدی فایل اول
-    "1fH1v8o_0szzKtU8qCcvtONcJUWYj4Dtk"   # آیدی فایل دوم
+    "1waDjHqZyidSHJ70TUAFqaGDUAwf7eZbN",  # آیدی فایل اول
+    "1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO",
+    "1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e"
 ]
 DOWNLOAD_EXTRACT_DIR = "files"  # پوشه‌ای که فایل‌ها در آن دانلود و استخراج می‌شوند
-FINAL_DIR = "round3"            # پوشه نهایی برای فایل‌های تغییر نام یافته
+FINAL_DIR = "round4"            # پوشه نهایی برای فایل‌های تغییر نام یافته
 
 def main():
     print("--- 🏁 شروع اسکریپت ---")
