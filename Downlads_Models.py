@@ -147,14 +147,14 @@ import tarfile
 import gdown
 import sys
 
-# https://drive.google.com/file/d/1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e/view?usp=drive_link
-# https://drive.google.com/file/d/1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO/view?usp=drive_link
-# https://drive.google.com/file/d/1waDjHqZyidSHJ70TUAFqaGDUAwf7eZbN/view?usp=drive_link
+https://drive.google.com/file/d/1hw0FoN2dJVIeB232UHD5VWe1pGWMJlEK/view?usp=sharing
+https://drive.google.com/file/d/1lJ3RcZc9oAvGVn5YyRBNvW_o9Nfs4XOW/view?usp=sharing
+https://drive.google.com/file/d/1wvVQkhqRvgbzq5AgR2SBCnw5JyM4pODj/view?usp=sharing
 
 FILE_IDS = [
-    "1waDjHqZyidSHJ70TUAFqaGDUAwf7eZbN",  # آیدی فایل اول
-    "1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO",
-    "1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e"
+    "1wvVQkhqRvgbzq5AgR2SBCnw5JyM4pODj",  # آیدی فایل اول
+    "1lJ3RcZc9oAvGVn5YyRBNvW_o9Nfs4XOW",
+    "1hw0FoN2dJVIeB232UHD5VWe1pGWMJlEK"
 ]
 DOWNLOAD_EXTRACT_DIR = "files"  # پوشه‌ای که فایل‌ها در آن دانلود و استخراج می‌شوند
 FINAL_DIR = "round4"            # پوشه نهایی برای فایل‌های تغییر نام یافته
