@@ -1,38 +1,60 @@
+salam in code ro bbin:
 import os
 import shutil
 import subprocess
 import sys
 import tarfile
 import zipfile
-import requests
 
-def gdrive_download(file_id, dest_path):
-    URL = "https://docs.google.com/uc?export=download"
-    session = requests.Session()
 
-    print(f"[DOWNLOAD] {file_id}")
+def ensure_gdown():
+    try:
+        import gdown
+    except ImportError:
+        print("[INFO] gdown not found. Installing...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "gdown"])
+    finally:
+        globals()["gdown"] = __import__("gdown")
 
-    response = session.get(URL, params={'id': file_id}, stream=True)
+def download_files(ids, outdir="downloads"):
+    os.makedirs(outdir, exist_ok=True)
+    downloaded = []
 
-    def get_confirm_token(response):
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-        return None
+    for file_id in ids:
+        outfile = os.path.join(outdir, file_id)
+        print(f"[DOWNLOAD] {file_id}")
 
-    token = get_confirm_token(response)
+        try:
+            gdown.download(id=file_id, output=outfile, quiet=False)
+        except:
+            print("[WARN] direct download failed, trying fuzzy...")
+            gdown.download(
+                url=f"https://drive.google.com/file/d/{file_id}/view",
+                output=outfile,
+                quiet=False,
+                fuzzy=True
+            )
 
-    if token:
-        response = session.get(URL, params={'id': file_id, 'confirm': token}, stream=True)
+        detected = outfile
+        if "." not in outfile:
+            try:
+                ftype = subprocess.check_output(["file", "-b", "--mime-type", outfile]).decode().strip()
+            except:
+                ftype = "application/octet-stream"
 
-    CHUNK = 32768
-    with open(dest_path, "wb") as f:
-        for chunk in response.iter_content(CHUNK):
-            if chunk:
-                f.write(chunk)
+            if "gzip" in ftype:
+                detected = outfile + ".tar.gz"
+            elif "zip" in ftype:
+                detected = outfile + ".zip"
+            else:
+                detected = outfile + ".bin"
 
-    print(f"[OK] Saved as: {dest_path}")
-    return dest_path
+            os.rename(outfile, detected)
+
+        downloaded.append(detected)
+        print(f"[OK] Saved as: {detected}")
+
+    return downloaded
 
 
 def extract_all(files, dest="temp_extract"):
@@ -61,6 +83,7 @@ def extract_all(files, dest="temp_extract"):
         extracted_dirs.append(out)
 
     return extracted_dirs
+
 
 def collect_id_folders(root="temp_extract"):
     id_dirs = []
@@ -91,18 +114,19 @@ def move_in_order(id_dirs, dest="round4"):
 
     print("[DONE] All folders moved.")
 
+
 if __name__ == "__main__":
+    ensure_gdown()
 
     FILE_IDS = [
-        "1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO",
+        # "1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO",
+        "1T67-LczZQrvYGM-e5Qm_d0jf5TCz-V_e",
         "1ArpFG5VaHgVzDLM2nlgbR6XnHz6XbIOp"
     ]
 
+    
     print("\n=== DOWNLOADING ===")
-    downloaded = []
-    for fid in FILE_IDS:
-        fname = fid + ".download"
-        downloaded.append(gdrive_download(fid, fname))
+    downloaded = download_files(FILE_IDS)
 
     print("\n=== EXTRACTING ===")
     extract_all(downloaded)
