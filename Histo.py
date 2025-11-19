@@ -10,19 +10,27 @@ import os
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 pair_index = 5
+base_dir = Path("round4")
 
-base_dir = Path("models_all")
-config_files = list(base_dir.glob("*/*/config.json"))
+if not base_dir.exists():
+    print(f"❌ Error: The directory '{base_dir}' does not exist.")
+    exit()
+
+config_files = list(base_dir.glob("*/config.json"))
+
+config_files = sorted(config_files, key=lambda x: x.parent.name)
+
+print(f"🔍 Scanning {len(config_files)} folders in '{base_dir}'...")
 
 resnet_models = []
-
-print("🔍 Scanning for all ResNet50 models...")
 
 for cfg_path in tqdm.tqdm(config_files):
     try:
         with open(cfg_path, "r") as f:
             data = json.load(f)
+        
         state = data.get("py/state", {})
+        
         arch = state.get("model_architecture", None)
         poisoned = state.get("poisoned", None)
         num_classes = state.get("number_classes", None)
@@ -49,6 +57,8 @@ used_poisoned = set()
 clean_models = [m for m in resnet_models if not m["poisoned"]]
 poisoned_models = [m for m in resnet_models if m["poisoned"]]
 
+print(f"📊 Found {len(clean_models)} clean models and {len(poisoned_models)} poisoned models.")
+
 for clean_m in clean_models:
     for poisoned_m in poisoned_models:
         if (
@@ -69,17 +79,18 @@ clean_path = selected_pair[0]["path"]
 poisoned_path = selected_pair[1]["path"]
 
 print(f"\n✅ Pair #{pair_index} Found:")
-print(f"Clean: {clean_path}")
-print(f"Poisoned: {poisoned_path}")
-print(f"Architecture: {selected_pair[0]['source_dataset']}")
-print(f"Number of classes: {selected_pair[0]['num_classes']}")
-print(f"Source dataset: {selected_pair[0]['source_dataset']}")
+print(f"Clean Model Path:    {clean_path}")
+print(f"Poisoned Model Path: {poisoned_path}")
+print(f"Architecture:        {selected_pair[0]['source_dataset']}")
+print(f"Number of classes:   {selected_pair[0]['num_classes']}")
 
 def load_model(path):
     model_path = path / "model.pt"
     if not model_path.exists():
         raise FileNotFoundError(f"{model_path} not found.")
+    
     model = torch.load(model_path, map_location=device)
+    
     if isinstance(model, dict) and "state_dict" in model:
         state_dict = model["state_dict"]
     elif isinstance(model, dict):
@@ -88,10 +99,14 @@ def load_model(path):
         state_dict = model.state_dict()
     return state_dict
 
-CleanModel = load_model(clean_path)
-BackdooredModelN = load_model(poisoned_path)
-
-print("✅ Models loaded successfully.\n")
+print("\n⏳ Loading models...")
+try:
+    CleanModel = load_model(clean_path)
+    BackdooredModelN = load_model(poisoned_path)
+    print("✅ Models loaded successfully.\n")
+except Exception as e:
+    print(f"❌ Error loading models: {e}")
+    exit()
 
 target_layers = ["layer3", "layer4"]
 
@@ -108,6 +123,7 @@ def extract_params_per_layer(state_dict, kind):
         result[layer] = values
     return result
 
+print("⏳ Extracting parameters...")
 clean_bn_bias = extract_params_per_layer(CleanModel, "bn_bias")
 backdoor_bn_bias = extract_params_per_layer(BackdooredModelN, "bn_bias")
 
@@ -115,11 +131,15 @@ conv_weights_clean = extract_params_per_layer(CleanModel, "conv_weight")
 conv_weights_backdoor = extract_params_per_layer(BackdooredModelN, "conv_weight")
 
 suffix = f"_pair{pair_index}"
-save_dir = Path(f"bn_conv_hist_plots_pair{pair_index}")
+save_dir = Path(f"bn_conv_hist_plots_pair_Round4{pair_index}")
 os.makedirs(save_dir, exist_ok=True)
 
 def save_hist_per_layer(clean_dict, backdoor_dict, kind, suffix):
     for layer in target_layers:
+        if len(clean_dict[layer]) == 0 or len(backdoor_dict[layer]) == 0:
+            print(f"⚠️ Warning: No parameters found for {kind} in {layer}. Skipping plot.")
+            continue
+
         plt.figure(figsize=(14, 7))
         sns.histplot(clean_dict[layer], color='blue', label=f"Clean {kind} {layer}",
                      kde=True, stat='density', alpha=0.6, bins=50)
@@ -137,17 +157,21 @@ def save_hist_per_layer(clean_dict, backdoor_dict, kind, suffix):
         plt.close()
         print(f"📊 Saved plot: {save_dir / filename}")
 
+print("⏳ Generating plots...")
 save_hist_per_layer(clean_bn_bias, backdoor_bn_bias, "bn_bias", suffix)
 save_hist_per_layer(conv_weights_clean, conv_weights_backdoor, "conv_weight", suffix)
 
 def print_stats(label, values, layer):
+    if len(values) == 0:
+        print(f"{label} ({layer}): No values found.")
+        return
     print(f"{label} ({layer}):")
     print(f"  Count: {len(values)}")
     print(f"  Std Dev: {np.std(values):.4f}")
     print(f"  Min: {np.min(values):.4f}")
     print(f"  Max: {np.max(values):.4f}\n")
 
-print(f"\n--- 📈 Statistics for Pair #{pair_index} (Same Architecture, Dataset, and Class Count) ---\n")
+print(f"\n--- 📈 Statistics for Pair #{pair_index} ---\n")
 for layer in target_layers:
     print_stats("Clean Model BN bias", clean_bn_bias[layer], layer)
     print_stats("Backdoored Model BN bias", backdoor_bn_bias[layer], layer)
