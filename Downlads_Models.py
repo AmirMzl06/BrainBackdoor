@@ -118,11 +118,11 @@ if __name__ == "__main__":
     ensure_gdown()
 
     FILE_IDS = [
+        # "1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO",
         "1rC6UpkRHCB1qegueU-vnoGPf_hSjXmbO",
-        "1ArpFG5VaHgVzDLM2nlgbR6XnHz6XbIOp",
-        "1KhWz_quMepa-YfB4Tgf9JYbst58WsvqX"
+        "1ArpFG5VaHgVzDLM2nlgbR6XnHz6XbIOp"
     ]
-
+    
     print("\n=== DOWNLOADING ===")
     downloaded = download_files(FILE_IDS)
 
