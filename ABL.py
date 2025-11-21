@@ -73,11 +73,40 @@ class PreActResNet18(nn.Module):
         out = self.linear(out)
         return out
 
-# ------------------- تنظیمات -------------------
+def test_model(model, dataloader, loss_fn):
+    model.eval()
+
+    test_loss = 0
+    correct = 0
+    total = 0
+
+    device = next(model.parameters()).device
+
+    with torch.no_grad():
+        for img, label in dataloader:
+            img = img.to(device)
+            label = label.to(device)
+
+            logit = model(img)
+            loss = loss_fn(logit, label)
+
+            test_loss += loss.item()
+
+            predicted = torch.argmax(logit, dim=1)
+
+            total += label.size(0)
+            correct += (predicted == label).sum().item()
+
+    avg_loss = test_loss / len(dataloader)
+    accuracy = 100 * correct / total
+
+    print(f'Test Results: \n Accuracy: {accuracy:.2f}% \n Average Loss: {avg_loss:.4f}\n')
+    return accuracy
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
-# ------------------- ساخت دیتاست BadNet -------------------
 root = './data'
 out_dir = './Pdata'
 poison_ratio = 0.1
@@ -151,6 +180,9 @@ for epoch in range(50):
         loss = criterion(model(img), label)
         loss.backward()
         optimizer.step()
+    if (epoch + 1) % 2 == 0:  # هر ۱۰ اپوک تست
+        print(f"Epoch {epoch+1}: Testing...")
+        test_model(BackdooredModel, BTestloader, loss_fn)
     scheduler.step()
 
 print("Backdoored Model trained!")
