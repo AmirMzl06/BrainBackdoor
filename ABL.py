@@ -170,7 +170,7 @@ for epoch in range(50):
         optimizer.step()
     scheduler.step()
     
-    if (epoch + 1) % 10 == 0:
+    if (epoch + 1) % 1 == 0:
         print(f"\nEpoch {epoch+1}/50")
         test_model(model, test_loader, criterion)
 
