@@ -219,7 +219,7 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
     scheduler.step()
-    if (epoch + 1) % 10 == 0:
+    if (epoch + 1) % 1 == 0:
         print(f"Epoch {epoch+1}: Testing...")
         test_model(BackdooredModel, BTestloader, loss_fn)
 
