@@ -183,7 +183,6 @@ for idx in range(len(testset)):
 
 print("Saved poisoned data to", out_dir)
 
-# ────────────────── Transforms با Augmentation ──────────────────
 train_transform = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
@@ -202,7 +201,6 @@ poisoned_test_dataset = datasets.ImageFolder(root=test_out, transform=test_trans
 BTrainloader = DataLoader(poisoned_dataset, batch_size=128, shuffle=True, num_workers=4)
 BTestloader = DataLoader(poisoned_test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
-# ────────────────── آموزش BackdooredModel ──────────────────
 device = "cuda" if torch.cuda.is_available() else "cpu"
 BackdooredModel = PreActResNet18(num_classes=10).to(device)
 
@@ -210,7 +208,7 @@ optimizer = optim.SGD(BackdooredModel.parameters(), lr=0.1, momentum=0.9, weight
 scheduler = MultiStepLR(optimizer, milestones=[20, 25], gamma=0.1)  # تنظیم برای آموزش کوتاه
 loss_fn = nn.CrossEntropyLoss()
 
-epochs = 30  # افزایش به ۳۰ برای مدل بهتر (کمتر از ۱۰ دقیقه)
+epochs = 30
 for epoch in range(epochs):
     BackdooredModel.train()
     for img, label in BTrainloader:
@@ -221,13 +219,12 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
     scheduler.step()
-    if (epoch + 1) % 10 == 0:  # هر ۱۰ اپوک تست
+    if (epoch + 1) % 10 == 0:
         print(f"Epoch {epoch+1}: Testing...")
-        test_model(BackdooredModel, BTestloader, loss_fn)  # تابع test_model خودت
+        test_model(BackdooredModel, BTestloader, loss_fn)
 
 print("BackdooredModel trained. Now compute ASR before ABL.")
 
-# ────────────────── ASR Calculator for BadNet ──────────────────
 def compute_asr(model, target_label=5):
     model.eval()
     testset_pil = datasets.CIFAR10(root='./data', train=False, download=True, transform=None)
@@ -261,9 +258,8 @@ def compute_asr(model, target_label=5):
     print(f"Clean Acc: {c_acc:.2f}% | ASR: {asr:.2f}%")
     return c_acc, asr
 
-compute_asr(BackdooredModel)  # قبل از ABL باید ASR ~99-100%
+compute_asr(BackdooredModel) 
 
-# ────────────────── ABL Defense ──────────────────
 class IndexedDataset(Dataset):
     def __init__(self, dataset):
         self.dataset = dataset
@@ -302,12 +298,11 @@ def isolate_poisoned_samples(model, loader, ratio, device):
 isolated_indices = isolate_poisoned_samples(BackdooredModel, isolation_loader, ratio=0.1, device=device)
 print(f"Isolated {len(isolated_indices)} samples.")
 
-# Unlearning
 defensed_model = copy.deepcopy(BackdooredModel)
 optimizer_abl = optim.SGD(defensed_model.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)  # LR کمتر برای unlearning بهتر
 criterion_abl = nn.CrossEntropyLoss(reduction='none')
-ABL_EPOCHS = 20  # افزایش به ۲۰
-GAMMA = 20.0  # افزایش gamma برای unlearning قوی‌تر
+ABL_EPOCHS = 20 
+GAMMA = 20.0 
 
 for epoch in range(ABL_EPOCHS):
     defensed_model.train()
@@ -318,7 +313,7 @@ for epoch in range(ABL_EPOCHS):
         output = defensed_model(img)
         loss_per = criterion_abl(output, label)
         weights = torch.ones(len(idx), device=device)
-        mask = torch.tensor([i.item() in isolated_indices for i in idx], device=device)  # فیکس باگ: i.item()
+        mask = torch.tensor([i.item() in isolated_indices for i in idx], device=device)
         weights[mask] = -GAMMA
         loss = (loss_per * weights).mean()
         loss.backward()
@@ -327,4 +322,4 @@ for epoch in range(ABL_EPOCHS):
     print(f"ABL Epoch {epoch+1}: Loss {total_loss / len(abl_loader):.4f}")
 
 print("ABL done. Now compute ASR after ABL.")
-compute_asr(defensed_model)  # حالا ASR باید پایین باشه (<5%)
+compute_asr(defensed_model) 
