@@ -129,6 +129,37 @@ def PreActResNet101():
 def PreActResNet152():
     return PreActResNet(PreActBottleneck, [3, 8, 36, 3])
 
+def test_model(model, dataloader, loss_fn):
+    model.eval()
+
+    test_loss = 0
+    correct = 0
+    total = 0
+
+    device = next(model.parameters()).device
+
+    with torch.no_grad():
+        for img, label in dataloader:
+            img = img.to(device)
+            label = label.to(device)
+
+            logit = model(img)
+            loss = loss_fn(logit, label)
+
+            test_loss += loss.item()
+
+            predicted = torch.argmax(logit, dim=1)
+
+            total += label.size(0)
+            correct += (predicted == label).sum().item()
+
+    avg_loss = test_loss / len(dataloader)
+    accuracy = 100 * correct / total
+
+    print(f'Test Results: \n Accuracy: {accuracy:.2f}% \n Average Loss: {avg_loss:.4f}\n')
+    return accuracy
+
+
 root = './data'
 out_dir = './Pdata'
 poison_ratio = 0.1
