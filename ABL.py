@@ -224,14 +224,14 @@ indices = np.array(indices)
 sorted_idx = np.argsort(losses)
 num_isolate = int(len(losses) * 0.02)
 isolated_set = set(indices[sorted_idx[:num_isolate]])
-print(f"Isolated {len(isolated_set)} samples (2%) - این مقدار کافیه!")
+print(f"Isolated {len(isolated_set)} samples (2%)")
 
 defensed = copy.deepcopy(model)
 opt_abl = optim.SGD(defensed.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4) 
 GAMMA = 2.0
 EPOCHS = 10
 
-print("\nStarting ABL Unlearning (تنظیمات رسمی - ASR می‌شه زیر ۲٪)...")
+print("\nStarting ABL Unlearning...")
 for epoch in range(EPOCHS):
     defensed.train()
     total_loss = 0.0
@@ -255,6 +255,6 @@ for epoch in range(EPOCHS):
     print(f"ABL Epoch {epoch+1:02d} | Avg Loss: {avg_loss:.4f}")
 
 print("\n" + "="*60)
-print("FINAL RESULT - ABL با تنظیمات رسمی BackdoorBench")
+print("FINAL RESULT - ABL BackdoorBench")
 print("="*60)
 evaluate(defensed)
