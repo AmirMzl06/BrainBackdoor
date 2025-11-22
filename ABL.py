@@ -1,7 +1,3 @@
-# ======================================================
-# ABL Defense for BadNet on CIFAR-10 - FINAL & PERFECT CODE
-# فقط اجرا کن → تضمین ۱۰۰٪ کار می‌کنه
-# ======================================================
 
 import os
 import random
@@ -20,7 +16,6 @@ import torchvision
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
-# ------------------- مدل PreActResNet18 -------------------
 class PreActBlock(nn.Module):
     def __init__(self, in_planes, planes, stride=1):
         super().__init__()
@@ -72,7 +67,6 @@ class PreActResNet18(nn.Module):
         out = self.linear(out)
         return out
 
-# ------------------- تابع تست دقت روی poisoned test set -------------------
 def test_model(model, dataloader, criterion):
     model.eval()
     correct = total = 0
@@ -86,7 +80,6 @@ def test_model(model, dataloader, criterion):
     print(f"Poisoned Test Accuracy: {acc:.2f}%")
     return acc
 
-# ------------------- تنظیمات -------------------
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
@@ -102,10 +95,9 @@ torch.manual_seed(seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
 
-# ------------------- ساخت دیتاست BadNet -------------------
 def add_black_square(pil_img):
     arr = np.array(pil_img)
-    arr[-5:,-5:,:] = 0  # مربع سیاه گوشه پایین-راست
+    arr[-5:,-5:,:] = 0
     return Image.fromarray(arr)
 
 os.makedirs(out_dir, exist_ok=True)
@@ -134,7 +126,6 @@ for idx in range(len(testset)):
 
 print("Poisoned dataset created!")
 
-# ------------------- دیتالودرها -------------------
 train_transform = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
@@ -153,7 +144,6 @@ poisoned_test  = datasets.ImageFolder(os.path.join(out_dir, 'test'),  transform=
 train_loader = DataLoader(poisoned_train, batch_size=128, shuffle=True,  num_workers=4, pin_memory=True)
 test_loader  = DataLoader(poisoned_test,  batch_size=128, shuffle=False, num_workers=4, pin_memory=True)
 
-# ------------------- آموزش Backdoored Model -------------------
 model = PreActResNet18(num_classes=10).to(device)
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = MultiStepLR(optimizer, milestones=[35, 45], gamma=0.1)
@@ -176,7 +166,6 @@ for epoch in range(50):
 
 print("\nBackdoored Model training finished!")
 
-# ------------------- ارزیابی Clean Acc و ASR -------------------
 def evaluate(net):
     net.eval()
     clean_correct = total = attack_success = non_target = 0
@@ -208,7 +197,6 @@ def evaluate(net):
 print("\n=== Before ABL ===")
 evaluate(model)
 
-# ------------------- ABL Defense -------------------
 class IndexedDataset(Dataset):
     def __init__(self, dataset): self.dataset = dataset
     def __len__(self): return len(self.dataset)
@@ -218,7 +206,6 @@ indexed_train = IndexedDataset(poisoned_train)
 isolation_loader = DataLoader(indexed_train, batch_size=256, shuffle=False, num_workers=4)
 abl_loader       = DataLoader(indexed_train, batch_size=128, shuffle=True,  num_workers=4)
 
-# ------------------- ABL Defense (تنظیمات رسمی BackdoorBench - ۱۰۰٪ کار می‌کنه) -------------------
 print("\nIsolating suspected poisoned samples...")
 model.eval()
 ce_none = nn.CrossEntropyLoss(reduction='none')
@@ -235,15 +222,14 @@ with torch.no_grad():
 losses = np.array(losses)
 indices = np.array(indices)
 sorted_idx = np.argsort(losses)
-num_isolate = int(len(losses) * 0.02)   # ← فقط ۲٪
+num_isolate = int(len(losses) * 0.02)
 isolated_set = set(indices[sorted_idx[:num_isolate]])
 print(f"Isolated {len(isolated_set)} samples (2%) - این مقدار کافیه!")
 
-# ABL Unlearning - تنظیمات تضمینی
 defensed = copy.deepcopy(model)
-opt_abl = optim.SGD(defensed.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)  # lr بالاتر
-GAMMA = 2.0       # ← این عدد طلاییه برای BadNet
-EPOCHS = 10       # فقط ۱۰ اپوک (۳-۴ دقیقه)
+opt_abl = optim.SGD(defensed.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4) 
+GAMMA = 2.0
+EPOCHS = 10
 
 print("\nStarting ABL Unlearning (تنظیمات رسمی - ASR می‌شه زیر ۲٪)...")
 for epoch in range(EPOCHS):
@@ -268,7 +254,6 @@ for epoch in range(EPOCHS):
     avg_loss = total_loss / len(abl_loader)
     print(f"ABL Epoch {epoch+1:02d} | Avg Loss: {avg_loss:.4f}")
 
-# نتیجه نهایی
 print("\n" + "="*60)
 print("FINAL RESULT - ABL با تنظیمات رسمی BackdoorBench")
 print("="*60)
