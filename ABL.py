@@ -222,12 +222,12 @@ with torch.no_grad():
 losses = np.array(losses)
 indices = np.array(indices)
 sorted_idx = np.argsort(losses)
-num_isolate = int(len(losses) * 0.02)
+num_isolate = int(len(losses) * 0.11)
 isolated_set = set(indices[sorted_idx[:num_isolate]])
 print(f"Isolated {len(isolated_set)} samples (2%)")
 
 defensed = copy.deepcopy(model)
-opt_abl = optim.SGD(defensed.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4) 
+opt_abl = optim.SGD(defensed.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4) 
 GAMMA = 2.0
 EPOCHS = 10
 
@@ -247,7 +247,7 @@ for epoch in range(EPOCHS):
 
         loss = (loss_per * weights).mean()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(defensed.parameters(), max_norm=10.0)
+        torch.nn.utils.clip_grad_norm_(defensed.parameters(), max_norm=1.0)
         opt_abl.step()
         total_loss += loss.item()
 
