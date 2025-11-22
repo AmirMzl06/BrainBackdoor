@@ -154,8 +154,8 @@ for epoch in range(40):
         loss.backward()
         optimizer.step()
     scheduler.step()
-    if epoch % 50 == 0:
-        print(f"Epoch {epoch}")
+    if epoch % 1 == 0:
+        print(f"Epoch {epoch}  Loss {loss}")
 
 print("Backdoor model trained.")
 
