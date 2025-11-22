@@ -8,6 +8,7 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 import numpy as np
 from PIL import Image
+import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
