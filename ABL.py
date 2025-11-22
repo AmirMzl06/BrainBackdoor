@@ -1,4 +1,3 @@
-
 import os
 import random
 import copy
@@ -19,15 +18,14 @@ import torchvision.transforms as transforms
 class PreActBlock(nn.Module):
     def __init__(self, in_planes, planes, stride=1):
         super().__init__()
-        self.bn1   = nn.BatchNorm2d(in_planes)
+        self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn2   = nn.BatchNorm2d(planes)
+        self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         if stride != 1 or in_planes != planes:
             self.shortcut = nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=False)
         else:
             self.shortcut = None
-
     def forward(self, x):
         out = torch.relu(self.bn1(x))
         shortcut = self.shortcut(out) if self.shortcut else x
@@ -35,19 +33,17 @@ class PreActBlock(nn.Module):
         out = self.conv2(torch.relu(self.bn2(out)))
         out += shortcut
         return out
-
 class PreActResNet18(nn.Module):
     def __init__(self, num_classes=10):
         super().__init__()
         self.in_planes = 64
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
-        self.layer1 = self._make_layer(64,  2, stride=1)
+        self.layer1 = self._make_layer(64, 2, stride=1)
         self.layer2 = self._make_layer(128, 2, stride=2)
         self.layer3 = self._make_layer(256, 2, stride=2)
         self.layer4 = self._make_layer(512, 2, stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.linear = nn.Linear(512, num_classes)
-
     def _make_layer(self, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
@@ -55,7 +51,6 @@ class PreActResNet18(nn.Module):
             layers.append(PreActBlock(self.in_planes, planes, s))
             self.in_planes = planes
         return nn.Sequential(*layers)
-
     def forward(self, x):
         out = self.conv1(x)
         out = self.layer1(out)
@@ -66,7 +61,6 @@ class PreActResNet18(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
-
 def test_model(model, dataloader, criterion):
     model.eval()
     correct = total = 0
@@ -79,77 +73,59 @@ def test_model(model, dataloader, criterion):
     acc = 100.0 * correct / total
     print(f"Poisoned Test Accuracy: {acc:.2f}%")
     return acc
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
-
 root = './data'
 out_dir = './Pdata'
 poison_ratio = 0.1
 target_label = 5
 seed = 42
-
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
-
 def add_black_square(pil_img):
     arr = np.array(pil_img)
     arr[-5:,-5:,:] = 0
     return Image.fromarray(arr)
-
-os.makedirs(out_dir, exist_ok=True)
-for split in ['train', 'test']:
-    for c in range(10):
-        os.makedirs(os.path.join(out_dir, split, str(c)), exist_ok=True)
-
+os.makedirs(os.path.join(out_dir, 'train'), exist_ok=True)
+os.makedirs(os.path.join(out_dir, 'test'), exist_ok=True)
+for c in range(10):
+    os.makedirs(os.path.join(out_dir, 'train', str(c)), exist_ok=True)
+    os.makedirs(os.path.join(out_dir, 'test', str(c)), exist_ok=True)
 trainset = datasets.CIFAR10(root=root, train=True, download=True, transform=None)
-testset  = datasets.CIFAR10(root=root, train=False, download=True, transform=None)
-
-poison_indices = set(random.sample(range(len(trainset)), int(len(trainset) * poison_ratio)))
-
-print("Creating poisoned dataset...")
+testset = datasets.CIFAR10(root=root, train=False, download=True, transform=None)
+poison_indices = set(random.sample(range(len(trainset)), int(len(trainset)*poison_ratio)))
 for idx in range(len(trainset)):
-    img, true_label = trainset[idx]
+    img, label = trainset[idx]
     if idx in poison_indices:
         img = add_black_square(img)
-        save_label = target_label
-    else:
-        save_label = true_label
-    img.save(os.path.join(out_dir, 'train', str(save_label), f'{idx:05d}.png'))
-
+        label = target_label
+    img.save(os.path.join(out_dir, 'train', str(label), f'{idx:05d}.png'))
 for idx in range(len(testset)):
     img, label = testset[idx]
     img.save(os.path.join(out_dir, 'test', str(label), f'{idx:05d}.png'))
-
-print("Poisoned dataset created!")
-
+print("Poisoned dataset ready!")
 train_transform = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
-
 test_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
-
 poisoned_train = datasets.ImageFolder(os.path.join(out_dir, 'train'), transform=train_transform)
-poisoned_test  = datasets.ImageFolder(os.path.join(out_dir, 'test'),  transform=test_transform)
-
-train_loader = DataLoader(poisoned_train, batch_size=128, shuffle=True,  num_workers=4, pin_memory=True)
-test_loader  = DataLoader(poisoned_test,  batch_size=128, shuffle=False, num_workers=4, pin_memory=True)
-
+poisoned_test = datasets.ImageFolder(os.path.join(out_dir, 'test'), transform=test_transform)
+train_loader = DataLoader(poisoned_train, batch_size=128, shuffle=True, num_workers=4, pin_memory=True)
+test_loader = DataLoader(poisoned_test, batch_size=128, shuffle=False, num_workers=4, pin_memory=True)
 model = PreActResNet18(num_classes=10).to(device)
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = MultiStepLR(optimizer, milestones=[35, 45], gamma=0.1)
 criterion = nn.CrossEntropyLoss()
-
-print("\nTraining Backdoored Model (50 epochs)...")
+print("Training Backdoored Model (50 epochs)...")
 for epoch in range(50):
     model.train()
     for img, label in train_loader:
@@ -159,102 +135,87 @@ for epoch in range(50):
         loss.backward()
         optimizer.step()
     scheduler.step()
-    
     if (epoch + 1) % 1 == 0:
-        print(f"\nEpoch {epoch+1}/50")
-        test_model(model, test_loader, criterion)
-
-print("\nBackdoored Model training finished!")
-
-def evaluate(net):
+        print(f"Epoch {epoch+1}: Testing...")
+        test_model(model, test_loader, criterion) 
+print("Backdoored Model trained. Now compute ASR before ABL.")
+def compute_acc_asr(net, trigger_func=None):
     net.eval()
     clean_correct = total = attack_success = non_target = 0
     clean_testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=None)
-
     with torch.no_grad():
         for pil_img, true_label in tqdm(clean_testset, desc="Evaluating"):
-            x = test_transform(pil_img).unsqueeze(0).to(device)
-            pred = net(x).argmax(1).item()
+            x_clean = test_transform(pil_img).unsqueeze(0).to(device)
+            pred = net(x_clean).argmax(1).item()
             total += 1
             if pred == true_label:
                 clean_correct += 1
 
             if true_label == target_label:
                 continue
-            non_target += 1
 
-            triggered_img = add_black_square(pil_img)
-            x_trig = test_transform(triggered_img).unsqueeze(0).to(device)
-            pred_trig = net(x_trig).argmax(1).item()
-            if pred_trig == target_label:
+            non_target += 1
+            x_trigger = trigger_func(pil_img) if trigger_func else pil_img
+            x_trigger = test_transform(x_trigger).unsqueeze(0).to(device)
+            pred_trigger = net(x_trigger).argmax(1).item()
+            if pred_trigger == target_label:
                 attack_success += 1
 
     clean_acc = 100.0 * clean_correct / total
     asr = 100.0 * attack_success / non_target if non_target > 0 else 0
-    print(f"\nClean Accuracy: {clean_acc:.2f}% | Attack Success Rate: {asr:.2f}%")
+    print(f"Clean Acc: {clean_acc:.2f}% | ASR: {asr:.2f}%")
     return clean_acc, asr
 
-print("\n=== Before ABL ===")
-evaluate(model)
-
+print("Before ABL:")
+compute_acc_asr(model, trigger_func=add_black_square)
 class IndexedDataset(Dataset):
     def __init__(self, dataset): self.dataset = dataset
     def __len__(self): return len(self.dataset)
     def __getitem__(self, idx): x, y = self.dataset[idx]; return x, y, idx
-
 indexed_train = IndexedDataset(poisoned_train)
 isolation_loader = DataLoader(indexed_train, batch_size=256, shuffle=False, num_workers=4)
-abl_loader       = DataLoader(indexed_train, batch_size=128, shuffle=True,  num_workers=4)
-
-print("\nIsolating suspected poisoned samples...")
-model.eval()
-ce_none = nn.CrossEntropyLoss(reduction='none')
-losses = []
-indices = []
-
-with torch.no_grad():
-    for x, y, idx in tqdm(isolation_loader, desc="Isolation"):
-        x, y = x.to(device), y.to(device)
-        loss = ce_none(model(x), y)
-        losses.extend(loss.cpu().numpy())
-        indices.extend(idx.numpy())
-
-losses = np.array(losses)
-indices = np.array(indices)
-sorted_idx = np.argsort(losses)
-num_isolate = int(len(losses) * 0.11)
-isolated_set = set(indices[sorted_idx[:num_isolate]])
-print(f"Isolated {len(isolated_set)} samples (2%)")
-
+abl_loader = DataLoader(indexed_train, batch_size=128, shuffle=True, num_workers=4)
+def isolate_poisoned(model, loader, ratio=0.11):
+    model.eval()
+    losses, indices = [], []
+    ce = nn.CrossEntropyLoss(reduction='none')
+    with torch.no_grad():
+        for x, y, idx in tqdm(loader, desc="Isolation"):
+            x, y = x.to(device), y.to(device)
+            loss = ce(model(x), y)
+            losses.extend(loss.cpu().numpy())
+            indices.extend(idx.numpy())
+    losses = np.array(losses)
+    indices = np.array(indices)
+    sorted_idx = np.argsort(losses)
+    num = int(len(losses) * ratio)
+    return set(indices[sorted_idx[:num]])
+print("Isolating poisoned samples...")
+isolated_set = isolate_poisoned(model, isolation_loader, ratio=0.11)
+print(f"Isolated {len(isolated_set)} samples (11%)")
+# Unlearning
 defensed = copy.deepcopy(model)
-opt_abl = optim.SGD(defensed.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4) 
+opt_abl = optim.SGD(defensed.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+ce_none = nn.CrossEntropyLoss(reduction='none')
 GAMMA = 2.0
 EPOCHS = 10
-
-print("\nStarting ABL Unlearning...")
+print("ABL Unlearning...")
 for epoch in range(EPOCHS):
     defensed.train()
-    total_loss = 0.0
+    total_loss = 0
     for x, y, idx in abl_loader:
         x, y = x.to(device), y.to(device)
         opt_abl.zero_grad()
         logits = defensed(x)
         loss_per = ce_none(logits, y)
-
         weights = torch.ones_like(y, dtype=torch.float32)
         mask = torch.tensor([i.item() in isolated_set for i in idx], device=device)
         weights[mask] = -GAMMA
-
         loss = (loss_per * weights).mean()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(defensed.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(defensed.parameters(), max_norm=5.0)
         opt_abl.step()
         total_loss += loss.item()
-
-    avg_loss = total_loss / len(abl_loader)
-    print(f"ABL Epoch {epoch+1:02d} | Avg Loss: {avg_loss:.4f}")
-
-print("\n" + "="*60)
-print("FINAL RESULT - ABL BackdoorBench")
-print("="*60)
-evaluate(defensed)
+    print(f"ABL Epoch {epoch+1:02d} | Loss: {total_loss/len(abl_loader):.6f}")
+print("\nAfter ABL:")
+compute_acc_asr(defensed, trigger_func=add_black_square)
