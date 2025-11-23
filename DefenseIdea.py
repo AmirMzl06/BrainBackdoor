@@ -110,7 +110,7 @@ def test_model(model, dataloader, loss_fn):
     print(f'Test Results: \n Accuracy: {accuracy:.2f}% \n Average Loss: {avg_loss:.4f}\n')
     return accuracy
 
-epochs = 50
+epochs = 30 #50
 
 for epoch in range(epochs):
     CleanModel.train()
@@ -304,40 +304,46 @@ BTestloader = DataLoader(dataset=poisoned_datasetR, batch_size=32, shuffle=True)
 print("\nCreating BackdooredModel...")
 BackdooredModelN = PreActResNet18(num_classes=10).to(device)
 
-print("Copying weights from CleanModel to BackdooredModel...")
-BackdooredModelN.load_state_dict(CleanModel.state_dict())
-print("Weights copied. CleanModel will not be trained further.")
+# print("Copying weights from CleanModel to BackdooredModel...")
+# BackdooredModelN.load_state_dict(CleanModel.state_dict())
+# print("Weights copied. CleanModel will not be trained further.")
 
-print("Freezing all layers in BackdooredModel...")
-for param in BackdooredModelN.parameters():
-    param.requires_grad = False
+# print("Freezing all layers in BackdooredModel...")
+# for param in BackdooredModelN.parameters():
+#     param.requires_grad = False
 
-print("Unfreezing the final two layers ('layer4' and 'linear')...")
+# print("Unfreezing the final two layers ('layer4' and 'linear')...")
 
-for param in BackdooredModelN.layer4.parameters():
-    param.requires_grad = True
+# for param in BackdooredModelN.layer4.parameters():
+#     param.requires_grad = True
 
-for param in BackdooredModelN.layer3.parameters():
-    param.requires_grad = True
+# for param in BackdooredModelN.layer3.parameters():
+#     param.requires_grad = True
 
-for param in BackdooredModelN.linear.parameters():
-    param.requires_grad = True
+# for param in BackdooredModelN.linear.parameters():
+#     param.requires_grad = True
 
 
-params_to_train = (
-    list(BackdooredModelN.layer3.parameters()) +
-    list(BackdooredModelN.layer4.parameters()) +
-    list(BackdooredModelN.linear.parameters())
-)
+# params_to_train = (
+#     list(BackdooredModelN.layer3.parameters()) +
+#     list(BackdooredModelN.layer4.parameters()) +
+#     list(BackdooredModelN.linear.parameters())
+# )
+
+# Bloptimizer = torch.optim.AdamW(
+#     params=params_to_train,
+#     lr=1e-3,
+# )
 
 Bloptimizer = torch.optim.AdamW(
-    params=params_to_train,
+    params=BackdooredModelN.parameters(),
     lr=1e-3,
 )
 
+
 print("Optimizer configured to train only 'layer4' and 'linear'.")
 
-epochs = 20
+epochs = 25 #20
 
 for epoch in range(epochs):
     BackdooredModelN.train()
@@ -541,40 +547,44 @@ print("\nCreating BackdooredModel_Reg...")
 
 BackdooredModel_Reg = PreActResNet18(num_classes=10).to(device)
 
-print("Copying weights from CleanModel to BackdooredModel_Reg...")
-BackdooredModel_Reg.load_state_dict(CleanModel.state_dict())
+# print("Copying weights from CleanModel to BackdooredModel_Reg...")
+# BackdooredModel_Reg.load_state_dict(CleanModel.state_dict())
 
-clean_weights_target = {}
-target_layers_for_reg = ["layer3", "layer4", "linear"]
-for name, param in CleanModel.named_parameters():
-    if any(layer in name for layer in target_layers_for_reg) and "weight" in name:
-        clean_weights_target[name] = param.data.clone().detach()
-
-
-print("Freezing all layers in BackdooredModel_Reg...")
-for param in BackdooredModel_Reg.parameters():
-    param.requires_grad = False
-
-print("Unfreezing the target layers ('layer3', 'layer4' and 'linear')...")
-
-for param in BackdooredModel_Reg.layer3.parameters():
-    param.requires_grad = True
-
-for param in BackdooredModel_Reg.layer4.parameters():
-    param.requires_grad = True
-
-for param in BackdooredModel_Reg.linear.parameters():
-    param.requires_grad = True
+# clean_weights_target = {}
+# target_layers_for_reg = ["layer3", "layer4", "linear"]
+# for name, param in CleanModel.named_parameters():
+#     if any(layer in name for layer in target_layers_for_reg) and "weight" in name:
+#         clean_weights_target[name] = param.data.clone().detach()
 
 
-params_to_train_reg = (
-    list(BackdooredModel_Reg.layer3.parameters()) +
-    list(BackdooredModel_Reg.layer4.parameters()) +
-    list(BackdooredModel_Reg.linear.parameters())
-)
+# print("Freezing all layers in BackdooredModel_Reg...")
+# for param in BackdooredModel_Reg.parameters():
+#     param.requires_grad = False
 
+# print("Unfreezing the target layers ('layer3', 'layer4' and 'linear')...")
+
+# for param in BackdooredModel_Reg.layer3.parameters():
+#     param.requires_grad = True
+
+# for param in BackdooredModel_Reg.layer4.parameters():
+#     param.requires_grad = True
+
+# for param in BackdooredModel_Reg.linear.parameters():
+#     param.requires_grad = True
+
+
+# params_to_train_reg = (
+#     list(BackdooredModel_Reg.layer3.parameters()) +
+#     list(BackdooredModel_Reg.layer4.parameters()) +
+#     list(BackdooredModel_Reg.linear.parameters())
+# )
+
+# Bloptimizer_Reg = torch.optim.AdamW(
+#     params=params_to_train_reg,
+#     lr=1e-3,
+# )
 Bloptimizer_Reg = torch.optim.AdamW(
-    params=params_to_train_reg,
+    params=BackdooredModel_Reg.parameters(),
     lr=1e-3,
 )
 
@@ -588,7 +598,7 @@ def calculate_weight_regularization_loss(model, clean_weights_target, lambda_reg
 
     return lambda_reg * reg_loss
 
-num_epochs = 20
+num_epochs = 30 #20
 lambda_reg = 1e-1
 
 print(f"\nStarting Backdoor training with Weight Regularization (lambda={lambda_reg})...")
