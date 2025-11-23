@@ -10,13 +10,25 @@ Transform = transforms.Compose([
     transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
                         std=[0.2023, 0.1994, 0.2010])
 ])
-trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=Transform)
-testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=Transform)
-trainset = datasets.CIFAR10(root='./Data', train=True, download=True, transform=Transform)
-testset = datasets.CIFAR10(root='./Data', train=False, download=True, transform=Transform)
+transform_train = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
+])
+
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
+])
+
+trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
+testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+
 from torch.utils.data import DataLoader
-CTrainloader = DataLoader(dataset = trainset,batch_size= 32)
-CTestloader = DataLoader(dataset = testset,batch_size= 32)
+CTrainloader = DataLoader(dataset=trainset, batch_size=128, shuffle=True, num_workers=2)
+CTestloader = DataLoader(dataset=testset, batch_size=100, shuffle=False, num_workers=2)
+
 class PreActBlock(nn.Module):
     def __init__(self, in_planes, planes, stride=1):
         super().__init__()
@@ -65,7 +77,9 @@ class PreActResNet18(nn.Module):
         return out
 CleanModel = PreActResNet18(num_classes=10).to(device)
 loss_fn = nn.CrossEntropyLoss()
-Coptimizer = torch.optim.AdamW(params=CleanModel.parameters(),lr=1e-3)
+Coptimizer = torch.optim.AdamW(params=CleanModel.parameters(), lr=0.01, weight_decay=5e-4)
+
+scheduler = torch.optim.lr_scheduler.MultiStepLR(Coptimizer, milestones=[25, 40], gamma=0.1)
 def test_model(model, dataloader, loss_fn):
     model.eval()
 
@@ -116,6 +130,7 @@ for epoch in range(epochs):
         Coptimizer.zero_grad()
         loss.backward()
         Coptimizer.step()
+        scheduler.step()
 
         if batch_idx % 100 == 0:
             print(f"  Batch {batch_idx}/{len(CTrainloader)} | Loss: {loss.item():.4f}")
