@@ -130,11 +130,10 @@ for epoch in range(epochs):
         Coptimizer.zero_grad()
         loss.backward()
         Coptimizer.step()
-    scheduler.step()
-
         if batch_idx % 100 == 0:
             print(f"  Batch {batch_idx}/{len(CTrainloader)} | Loss: {loss.item():.4f}")
 
+    scheduler.step()
     print(f"\n--- Evaluating at the end of Epoch {epoch + 1} ---")
     test_model(model=CleanModel, dataloader=CTestloader, loss_fn=loss_fn)
     print("="*50)
