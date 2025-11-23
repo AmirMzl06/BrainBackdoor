@@ -1,15 +1,18 @@
 import torch
 from torch import nn
 import torchvision.datasets as datasets
-import torchvision.models as models
 import torchvision.transforms as transforms
+from torch.utils.data import DataLoader
+
 device = 'cuda'
+
 Transform = transforms.Compose([
     transforms.Resize((32, 32)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
                         std=[0.2023, 0.1994, 0.2010])
 ])
+
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
@@ -25,7 +28,6 @@ transform_test = transforms.Compose([
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
 testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
 
-from torch.utils.data import DataLoader
 CTrainloader = DataLoader(dataset=trainset, batch_size=128, shuffle=True, num_workers=2)
 CTestloader = DataLoader(dataset=testset, batch_size=100, shuffle=False, num_workers=2)
 
@@ -47,6 +49,7 @@ class PreActBlock(nn.Module):
         out = self.conv2(torch.relu(self.bn2(out)))
         out += shortcut
         return out
+
 class PreActResNet18(nn.Module):
     def __init__(self, num_classes=10):
         super().__init__()
@@ -75,38 +78,30 @@ class PreActResNet18(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
+
 CleanModel = PreActResNet18(num_classes=10).to(device)
 loss_fn = nn.CrossEntropyLoss()
 Coptimizer = torch.optim.AdamW(params=CleanModel.parameters(), lr=1e-3, weight_decay=5e-4)
-
 scheduler = torch.optim.lr_scheduler.MultiStepLR(Coptimizer, milestones=[25, 40], gamma=0.1)
+
 def test_model(model, dataloader, loss_fn):
     model.eval()
-
     test_loss = 0
     correct = 0
     total = 0
-
     device = next(model.parameters()).device
-
     with torch.no_grad():
         for img, label in dataloader:
             img = img.to(device)
             label = label.to(device)
-
             logit = model(img)
             loss = loss_fn(logit, label)
-
             test_loss += loss.item()
-
             predicted = torch.argmax(logit, dim=1)
-
             total += label.size(0)
             correct += (predicted == label).sum().item()
-
     avg_loss = test_loss / len(dataloader)
     accuracy = 100 * correct / total
-
     print(f'Test Results: \n Accuracy: {accuracy:.2f}% \n Average Loss: {avg_loss:.4f}\n')
     return accuracy
 
@@ -114,101 +109,60 @@ epochs = 50
 
 for epoch in range(epochs):
     CleanModel.train()
-
     print("")
     print(f"--- Epoch {epoch + 1}/{epochs} ---")
     print("")
-
     for batch_idx, (img, label) in enumerate(CTrainloader):
         img = img.to(device)
         label = label.to(device)
-        # Forward pass
         logit = CleanModel(img)
         loss = loss_fn(logit, label)
-
-        # Backward pass and optimization
         Coptimizer.zero_grad()
         loss.backward()
         Coptimizer.step()
         if batch_idx % 100 == 0:
             print(f"  Batch {batch_idx}/{len(CTrainloader)} | Loss: {loss.item():.4f}")
-
     scheduler.step()
     print(f"\n--- Evaluating at the end of Epoch {epoch + 1} ---")
     test_model(model=CleanModel, dataloader=CTestloader, loss_fn=loss_fn)
     print("="*50)
 
-print("Training finished!")
+FineTuneModel = PreActResNet18(num_classes=10).to(device)
+FineTuneModel.load_state_dict(CleanModel.state_dict())
 
-
-
-poisoned_train_dir = './data/train'
-poisoned_test_dir = './data/test'
-poisoned_dataset = datasets.ImageFolder(root=poisoned_train_dir, transform=Transform)
-poisoned_datasetR = datasets.ImageFolder(root=poisoned_test_dir, transform=Transform)
-BTrainloader = DataLoader(dataset=poisoned_dataset, batch_size=32, shuffle=True)
-BTestloader = DataLoader(dataset=poisoned_datasetR, batch_size=32, shuffle=True)
-
-print("\nCreating BackdooredModel...")
-BackdooredModelN = PreActResNet18(num_classes=10).to(device)
-
-print("Copying weights from CleanModel to BackdooredModel...")
-BackdooredModelN.load_state_dict(CleanModel.state_dict())
-print("Weights copied. CleanModel will not be trained further.")
-
-print("Freezing all layers in BackdooredModel...")
-for param in BackdooredModelN.parameters():
+for param in FineTuneModel.parameters():
     param.requires_grad = False
 
-print("Unfreezing the final two layers ('layer4' and 'linear')...")
-
-for param in BackdooredModelN.layer4.parameters():
-    param.requires_grad = True
-
-for param in BackdooredModelN.layer3.parameters():
-    param.requires_grad = True
-
-for param in BackdooredModelN.linear.parameters():
-    param.requires_grad = True
-
+for p in FineTuneModel.layer3.parameters():
+    p.requires_grad = True
+for p in FineTuneModel.layer4.parameters():
+    p.requires_grad = True
+for p in FineTuneModel.linear.parameters():
+    p.requires_grad = True
 
 params_to_train = (
-    list(BackdooredModelN.layer3.parameters()) +
-    list(BackdooredModelN.layer4.parameters()) +
-    list(BackdooredModelN.linear.parameters())
+    list(FineTuneModel.layer3.parameters()) +
+    list(FineTuneModel.layer4.parameters()) +
+    list(FineTuneModel.linear.parameters())
 )
 
-Bloptimizer = torch.optim.AdamW(
-    params=params_to_train,
-    lr=1e-3,
-)
+FToptimizer = torch.optim.AdamW(params_to_train, lr=1e-3)
 
-print("Optimizer configured to train only 'layer4' and 'linear'.")
-
-epochs = 20
+epochs = 10
 
 for epoch in range(epochs):
-    BackdooredModelN.train()
-
-    print("\n")
-    print(f"--- Epoch {epoch + 1}/{epochs} ---")
-    print("\n")
-
-    for batch_idx, (img, label) in enumerate(BTrainloader):
+    FineTuneModel.train()
+    print(f"\n--- Fine-tune Epoch {epoch+1}/{epochs} ---\n")
+    for batch_idx, (img, label) in enumerate(CTrainloader):
         img = img.to(device)
         label = label.to(device)
-        # Forward pass
-        logit = BackdooredModelN(img)
+        logit = FineTuneModel(img)
         loss = loss_fn(logit, label)
-
-        # Backward pass and optimization
-        Bloptimizer.zero_grad()
+        FToptimizer.zero_grad()
         loss.backward()
-        Bloptimizer.step()
-
+        FToptimizer.step()
         if batch_idx % 100 == 0:
-            print(f"  Batch {batch_idx}/{len(BTrainloader)} | Loss: {loss.item():.4f}")
-
-    print(f"\n--- Evaluating at the end of Epoch {epoch + 1} ---")
-    test_model(model=BackdooredModelN, dataloader=BTestloader, loss_fn=loss_fn)
-    print("="*50)
+            print(f"  Batch {batch_idx}/{len(CTrainloader)} | Loss: {loss.item():.4f}")
+    print("\n--- Evaluating ---")
+    test_model(FineTuneModel, CTestloader, loss_fn)
+    print("="*40)
