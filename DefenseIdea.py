@@ -77,7 +77,7 @@ class PreActResNet18(nn.Module):
         return out
 CleanModel = PreActResNet18(num_classes=10).to(device)
 loss_fn = nn.CrossEntropyLoss()
-Coptimizer = torch.optim.AdamW(params=CleanModel.parameters(), lr=0.01, weight_decay=5e-4)
+Coptimizer = torch.optim.AdamW(params=CleanModel.parameters(), lr=1e-3, weight_decay=5e-4)
 
 scheduler = torch.optim.lr_scheduler.MultiStepLR(Coptimizer, milestones=[25, 40], gamma=0.1)
 def test_model(model, dataloader, loss_fn):
@@ -130,7 +130,7 @@ for epoch in range(epochs):
         Coptimizer.zero_grad()
         loss.backward()
         Coptimizer.step()
-        scheduler.step()
+    scheduler.step()
 
         if batch_idx % 100 == 0:
             print(f"  Batch {batch_idx}/{len(CTrainloader)} | Loss: {loss.item():.4f}")
@@ -336,8 +336,8 @@ testset_pil = datasets.CIFAR10(root='./data', train=False, download=True, transf
 transform_for_model = transforms.Compose([
     transforms.Resize((32, 32)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+    transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
+                         std=[0.2023, 0.1994, 0.2010])
 ])
 
 rng = np.random.RandomState(seed)
