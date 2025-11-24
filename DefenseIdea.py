@@ -550,11 +550,11 @@ BackdooredModel_Reg = PreActResNet18(num_classes=10).to(device)
 # print("Copying weights from CleanModel to BackdooredModel_Reg...")
 # BackdooredModel_Reg.load_state_dict(CleanModel.state_dict())
 
-# clean_weights_target = {}
-# target_layers_for_reg = ["layer3", "layer4", "linear"]
-# for name, param in CleanModel.named_parameters():
-#     if any(layer in name for layer in target_layers_for_reg) and "weight" in name:
-#         clean_weights_target[name] = param.data.clone().detach()
+clean_weights_target = {}
+target_layers_for_reg = ["layer1","layer2","layer3", "layer4", "linear"]
+for name, param in CleanModel.named_parameters():
+    if any(layer in name for layer in target_layers_for_reg) and "weight" in name:
+        clean_weights_target[name] = param.data.clone().detach()
 
 
 # print("Freezing all layers in BackdooredModel_Reg...")
