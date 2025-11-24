@@ -298,8 +298,8 @@ poisoned_train_dir = './Pdata/train'
 poisoned_test_dir = './Pdata/test'
 poisoned_dataset = datasets.ImageFolder(root=poisoned_train_dir, transform=Transform)
 poisoned_datasetR = datasets.ImageFolder(root=poisoned_test_dir, transform=Transform)
-BTrainloader = DataLoader(dataset=poisoned_dataset, batch_size=32, shuffle=True)
-BTestloader = DataLoader(dataset=poisoned_datasetR, batch_size=32, shuffle=True)
+BTrainloader = DataLoader(dataset=poisoned_dataset, batch_size=128, shuffle=True)
+BTestloader = DataLoader(dataset=poisoned_datasetR, batch_size=128, shuffle=True)
 
 print("\nCreating BackdooredModel...")
 BackdooredModelN = PreActResNet18(num_classes=10).to(device)
