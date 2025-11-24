@@ -343,7 +343,7 @@ Bloptimizer = torch.optim.AdamW(
 
 print("Optimizer configured to train only 'layer4' and 'linear'.")
 
-epochs = 25 #20
+epochs = 15 #20
 
 for epoch in range(epochs):
     BackdooredModelN.train()
@@ -598,7 +598,7 @@ def calculate_weight_regularization_loss(model, clean_weights_target, lambda_reg
 
     return lambda_reg * reg_loss
 
-num_epochs = 30 #20
+num_epochs = 15 #20
 lambda_reg = 1e-1
 
 print(f"\nStarting Backdoor training with Weight Regularization (lambda={lambda_reg})...")
