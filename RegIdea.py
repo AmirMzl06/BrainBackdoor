@@ -112,31 +112,31 @@ def test_model(model, dataloader, loss_fn):
 
 epochs = 30 #50
 
-for epoch in range(epochs):
-    CleanModel.train()
+# for epoch in range(epochs):
+#     CleanModel.train()
 
-    print("")
-    print(f"--- Epoch {epoch + 1}/{epochs} ---")
-    print("")
+#     print("")
+#     print(f"--- Epoch {epoch + 1}/{epochs} ---")
+#     print("")
 
-    for batch_idx, (img, label) in enumerate(CTrainloader):
-        img = img.to(device)
-        label = label.to(device)
-        # Forward pass
-        logit = CleanModel(img)
-        loss = loss_fn(logit, label)
+#     for batch_idx, (img, label) in enumerate(CTrainloader):
+#         img = img.to(device)
+#         label = label.to(device)
+#         # Forward pass
+#         logit = CleanModel(img)
+#         loss = loss_fn(logit, label)
 
-        # Backward pass and optimization
-        Coptimizer.zero_grad()
-        loss.backward()
-        Coptimizer.step()
-        if batch_idx % 100 == 0:
-            print(f"  Batch {batch_idx}/{len(CTrainloader)} | Loss: {loss.item():.4f}")
+#         # Backward pass and optimization
+#         Coptimizer.zero_grad()
+#         loss.backward()
+#         Coptimizer.step()
+#         if batch_idx % 100 == 0:
+#             print(f"  Batch {batch_idx}/{len(CTrainloader)} | Loss: {loss.item():.4f}")
 
-    scheduler.step()
-    print(f"\n--- Evaluating at the end of Epoch {epoch + 1} ---")
-    test_model(model=CleanModel, dataloader=CTestloader, loss_fn=loss_fn)
-    print("="*50)
+#     scheduler.step()
+#     print(f"\n--- Evaluating at the end of Epoch {epoch + 1} ---")
+#     test_model(model=CleanModel, dataloader=CTestloader, loss_fn=loss_fn)
+#     print("="*50)
 
 print("Training finished!")
 import os
