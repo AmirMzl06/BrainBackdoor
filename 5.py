@@ -625,13 +625,13 @@ for epoch in range(num_epochs):
 
         classification_loss = loss_fn(outputs, labels)
 
-        regularization_loss = calculate_weight_regularization_loss(
-            BackdooredModel_Reg,
-            clean_weights_target,
-            lambda_reg
-        )
+        # regularization_loss = calculate_weight_regularization_loss(
+        #     BackdooredModel_Reg,
+        #     clean_weights_target,
+        #     lambda_reg
+        # )
 
-        total_loss = classification_loss + regularization_loss
+        total_loss = classification_loss# + regularization_loss
 
         total_loss.backward()
         Bloptimizer_Reg.step()
