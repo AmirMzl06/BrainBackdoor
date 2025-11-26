@@ -584,7 +584,7 @@ for name, param in CleanModel.named_parameters():
 #     lr=1e-3,
 # )
 
-lambda_reg = 1e-2
+lambda_reg = 0.5
 Bloptimizer_Reg = torch.optim.AdamW(
     params=BackdooredModel_Reg.parameters(),
     lr=1e-3,
