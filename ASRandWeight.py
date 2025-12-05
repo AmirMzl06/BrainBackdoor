@@ -156,14 +156,14 @@ test_loader  = DataLoader(test_ds,  batch_size=256, shuffle=False, num_workers=2
 
 def init_constant(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        nn.init.constant_(m.weight, 2.0)
+        nn.init.constant_(m.weight, 0.1)
         if m.bias is not None:
             nn.init.zeros_(m.bias)
 
 model = PreActResNet18().to(device)
 model.apply(init_constant)
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+optimizer = torch.optim.AdamW(model.parameters(), lr=5e-3)
 loss_fn = nn.CrossEntropyLoss()
 
 
