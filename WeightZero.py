@@ -217,7 +217,7 @@ Bloptimizer = torch.optim.AdamW(
 
 print("Optimizer configured to train only 'layer4' and 'linear'.")
 
-epochs = 20 #20
+epochs = 10 #20
 
 for epoch in range(epochs):
     BackdooredModelN.train()
