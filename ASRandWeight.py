@@ -246,7 +246,7 @@ for k, v in sorted_changes[:10]:
     print(f"{k}: {v:.6f}")
 
 
-NUM_FREEZE = 5
+NUM_FREEZE = 2 #5
 layers_to_freeze = [name for name, _ in sorted_changes[:NUM_FREEZE]]
 print("\nFreezing these layers:", layers_to_freeze)
 
