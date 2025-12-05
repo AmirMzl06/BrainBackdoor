@@ -3,6 +3,9 @@ from torch import nn
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
+from torch.utils.data import Dataset
+
+
 device = 'cuda'
 Transform = transforms.Compose([
     transforms.Resize((32, 32)),
@@ -360,8 +363,15 @@ class TriggeredDataset(Dataset):
 
 
 # Create triggered loader for ASR
-triggered_dataset = TriggeredDataset(testset_pil, target_label, rng, apply_sig_to_pil, transform_for_model,
-                                     SIG_RANDOM_PHASE)
+triggered_dataset = TriggeredDataset(
+    testset_pil,
+    target_label,
+    rng,
+    apply_sig_to_pil_for_asr,  
+    transform_for_model,
+    SIG_RANDOM_PHASE
+)
+
 triggered_loader = DataLoader(triggered_dataset, batch_size=100, shuffle=False, num_workers=2)
 
 
@@ -381,7 +391,7 @@ def compute_acc(model, loader):
 
 
 # Updated compute_asr (using triggered loader, count how many predicted as target)
-def compute_asr(model, loader):
+def compute_asr(model, loader,target_label):
     model.eval()
     successful = 0
     total = 0
@@ -416,7 +426,7 @@ for param_name, _ in BackdooredModelN.named_parameters():
 
     # Compute ACC and ASR on temp_model
     acc = compute_acc(temp_model, CTestloader)
-    asr = compute_asr(temp_model, triggered_loader)
+    asr = compute_asr(temp_model, triggered_loader,5)
 
     print(f"  - Clean ACC after zeroing: {acc:.2f}%")
     print(f"  - ASR after zeroing: {asr:.2f}%")
