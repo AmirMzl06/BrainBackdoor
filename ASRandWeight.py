@@ -228,53 +228,118 @@ for ep in range(EPOCHS):
     print(f" ASR: {asr:.2f}%")
     print("="*50)
 
-# ---- Compute weight changes ----
+# # ---- Compute weight changes ----
+# final_state = model.state_dict()
+
+# weight_changes = {}
+
+# for name in initial_state.keys():
+#     if "weight" in name:
+#         diff = (final_state[name] - initial_state[name]).abs().mean().item()
+#         weight_changes[name] = diff
+
+# # Sort by change (descending)
+# sorted_changes = sorted(weight_changes.items(), key=lambda x: x[1], reverse=True)
+
+# print("\n==== Top Changed Weights ====")
+# for k, v in sorted_changes[:10]:
+#     print(f"{k}: {v:.6f}")
+
+
+# NUM_FREEZE = 2 #5
+# layers_to_freeze = [name for name, _ in sorted_changes[:NUM_FREEZE]]
+# print("\nFreezing these layers:", layers_to_freeze)
+
+# # New model
+# defense_model = PreActResNet18().to(device)
+# defense_model.load_state_dict(initial_state)  # start from initial clean state
+
+
+# for name, param in defense_model.named_parameters():
+#     for freeze_name in layers_to_freeze:
+#         if freeze_name in name:
+#             param.requires_grad = False
+
+
+# optimizer_def = torch.optim.AdamW(
+#     filter(lambda p: p.requires_grad, defense_model.parameters()),
+#     lr=5e-3
+# )
+
+# EPOCHS_DEF = 10
+# for ep in range(EPOCHS_DEF):
+#     defense_model.train()
+#     running = 0
+
+#     for img, label in tqdm(train_loader, desc=f"Defense Epoch {ep+1}/{EPOCHS_DEF}"):
+#         img, label = img.to(device), label.to(device)
+#         out = defense_model(img)
+#         loss = loss_fn(out, label)
+
+#         optimizer_def.zero_grad()
+#         loss.backward()
+#         optimizer_def.step()
+
+#         running += loss.item()
+
+#     clean_acc = eval_clean(defense_model)
+#     asr = eval_asr(defense_model)
+#     print(f"\nDefense Epoch {ep+1}")
+#     print(f" Loss: {running/len(train_loader):.4f}")
+#     print(f" Clean Acc: {clean_acc:.2f}%")
+#     print(f" ASR: {asr:.2f}%")
+#     print("="*50)
+
 final_state = model.state_dict()
-
 weight_changes = {}
-
 for name in initial_state.keys():
     if "weight" in name:
         diff = (final_state[name] - initial_state[name]).abs().mean().item()
         weight_changes[name] = diff
 
-# Sort by change (descending)
+# Sort by change descending
 sorted_changes = sorted(weight_changes.items(), key=lambda x: x[1], reverse=True)
 
 print("\n==== Top Changed Weights ====")
 for k, v in sorted_changes[:10]:
     print(f"{k}: {v:.6f}")
 
+# ----------------------------
+# Step 3: Select suspicious layers for heavy L2
+# ----------------------------
+NUM_SUSP = 3   # تعداد لایه‌های مشکوک
+suspicious_layers = [name for name, _ in sorted_changes[:NUM_SUSP]]
+print("\nSuspicious layers for L2:", suspicious_layers)
 
-NUM_FREEZE = 2 #5
-layers_to_freeze = [name for name, _ in sorted_changes[:NUM_FREEZE]]
-print("\nFreezing these layers:", layers_to_freeze)
+# ----------------------------
+# Step 4: Prepare for defense training
+# ----------------------------
+# Save initial weights again for L2 reference
+initial_for_reg = {n: p.detach().clone() for n, p in model.named_parameters()}
 
-# New model
-defense_model = PreActResNet18().to(device)
-defense_model.load_state_dict(initial_state)  # start from initial clean state
-
-
-for name, param in defense_model.named_parameters():
-    for freeze_name in layers_to_freeze:
-        if freeze_name in name:
-            param.requires_grad = False
-
-
-optimizer_def = torch.optim.AdamW(
-    filter(lambda p: p.requires_grad, defense_model.parameters()),
-    lr=5e-3
-)
-
+# ----------------------------
+# Step 5: Continue training with selective L2
+# ----------------------------
+lambda_reg = 1.0  # سنگین
 EPOCHS_DEF = 10
-for ep in range(EPOCHS_DEF):
-    defense_model.train()
-    running = 0
 
+optimizer_def = torch.optim.AdamW(model.parameters(), lr=5e-3)
+
+for ep in range(EPOCHS_DEF):
+    model.train()
+    running = 0
     for img, label in tqdm(train_loader, desc=f"Defense Epoch {ep+1}/{EPOCHS_DEF}"):
         img, label = img.to(device), label.to(device)
-        out = defense_model(img)
+        out = model(img)
         loss = loss_fn(out, label)
+
+        # ----- L2 heavy on suspicious layers -----
+        reg = 0
+        for name, param in model.named_parameters():
+            for key in suspicious_layers:
+                if name.startswith(key):
+                    reg = reg + ((param - initial_for_reg[name]) ** 2).sum()
+        loss = loss + lambda_reg * reg
 
         optimizer_def.zero_grad()
         loss.backward()
@@ -282,14 +347,13 @@ for ep in range(EPOCHS_DEF):
 
         running += loss.item()
 
-    clean_acc = eval_clean(defense_model)
-    asr = eval_asr(defense_model)
+    clean_acc = eval_clean(model)
+    asr = eval_asr(model)
     print(f"\nDefense Epoch {ep+1}")
     print(f" Loss: {running/len(train_loader):.4f}")
     print(f" Clean Acc: {clean_acc:.2f}%")
     print(f" ASR: {asr:.2f}%")
     print("="*50)
-
 
 
 
