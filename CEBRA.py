@@ -15,8 +15,9 @@ save_path = "/mnt/data/hossein/Hossein_workspace/nips_cetra/BrainBackdoor/code/B
 print(f"--- Directory '{save_path}' created ---")
 
 # print("--- Downloading and Loading Dataset ---")
-hippocampus_pos = cebra.datasets.init('rat-hippocampus-single-achilles', data_root=save_path)
-# print("--- Dataset Ready ---")
+# hippocampus_pos = cebra.datasets.init('rat-hippocampus-single-achilles', data_root=save_path)
+hippocampus_pos = cebra.datasets.init('rat-hippocampus-single-achilles', root=save_path)
+#print("--- Dataset Ready ---")
 
 max_iterations = 10000 
 output_dimension = 32 
