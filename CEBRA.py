@@ -10,14 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import r2_score
 
-save_path = "/mnt/data/hossein/Hossein_workspace/nips_cetra/BrainBackdoor/code/BrainBackdoor/hip"
-
-file_full_path = os.path.join(save_path, "hippocampus_single_achilles.h5")
-
-print(f"--- Loading local dataset from: {file_full_path} ---")
-
-hippocampus_pos = cebra.datasets.load_data(file_full_path, key='rat-hippocampus-single-achilles')
-#print("--- Dataset Ready ---")
+hippocampus_pos = cebra.datasets.init('rat-hippocampus-single-achilles')
 
 max_iterations = 10000 
 output_dimension = 32 
