@@ -1,15 +1,16 @@
 import h5py
-import numpy as np
+
+def print_structure(name, obj):
+    if isinstance(obj, h5py.Dataset):
+        print(f"{name}: shape = {obj.shape}, dtype = {obj.dtype}")
+    else:
+        print(f"{name}/")  # group
 
 file_path = "hip/hippocampus_single_achilles.h5"
-
 with h5py.File(file_path, 'r') as f:
-    print("کلیدهای موجود:", list(f.keys()))
-    for key in f.keys():
-        data = f[key][:]
-        print(f"{key}: shape = {data.shape}, dtype = {data.dtype}")
-
-
+    print("ساختار فایل:")
+    f.visititems(print_structure)
+    
 # import os
 # import sys
 # import numpy as np
