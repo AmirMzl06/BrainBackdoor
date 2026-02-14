@@ -62,7 +62,7 @@ cebra_pos_model = CEBRA(model_architecture='offset10-model',
                         output_dimension=output_dimension,
                         max_iterations=max_iterations,
                         distance='cosine',
-                        conditional='behavior',
+                        conditional='time_delta',
                         device='cuda_if_available',
                         verbose=True,
                         time_offsets=10)
