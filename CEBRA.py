@@ -62,7 +62,7 @@ cebra_pos_model = CEBRA(model_architecture='offset10-model',
                         output_dimension=output_dimension,
                         max_iterations=max_iterations,
                         distance='cosine',
-                        conditional='time_delta',
+                        conditional='continuous',
                         device='cuda_if_available',
                         verbose=True,
                         time_offsets=10)
@@ -88,7 +88,7 @@ class RobustDecoder(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=500000, lr=0.01):
+def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=500000, lr=0.001):
     y_train, y_test = label_train, label_test
     y_min, y_max = y_train.min(axis=0), y_train.max(axis=0)
     y_train_norm = (y_train - y_min) / (y_max - y_min)
@@ -103,7 +103,7 @@ def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs
     X_train, y_train_target, X_test = X_train.to(device), y_train_target.to(device), X_test.to(device)
     
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=lr,weight_decay=1e-4)
     
     for epoch in range(epochs):
         model.train()
