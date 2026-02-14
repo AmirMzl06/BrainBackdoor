@@ -11,26 +11,22 @@ from sklearn.metrics import r2_score
 file_path = "hip/hippocampus_single_achilles.h5"
 
 with h5py.File(file_path, 'r') as f:
-    cursor_times = f['cursor/timestamp_indices_1s'][:]
     cursor_vel = f['cursor/vel'][:]
+    cursor_times = f['cursor/timestamp_indices_1s'][:]
     spike_times = f['spikes/timestamp_indices_1s'][:]
     spike_units = f['spikes/unit_index'][:]
     cursor_train_mask = f['cursor/train_mask'][:]
     cursor_test_mask = f['cursor/test_mask'][:]
     n_neurons = f['units/brain_area'].shape[0]
-    
-# اطمینان از هم‌سایز بودن داده‌های اسپایک
+
+n_samples = len(cursor_vel)
 min_spike_len = min(len(spike_times), len(spike_units))
 spike_times = spike_times[:min_spike_len]
 spike_units = spike_units[:min_spike_len]
 
-n_samples = len(cursor_times)
 neural = np.zeros((n_samples, n_neurons), dtype=np.float32)
-
 indices = np.searchsorted(cursor_times, spike_times, side='right') - 1
 valid = (indices >= 0) & (indices < n_samples)
-
-# اعمال ماسک valid روی هر دو آرایه به صورت همزمان
 indices = indices[valid]
 filtered_spike_units = spike_units[valid]
 
