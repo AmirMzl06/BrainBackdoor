@@ -11,13 +11,20 @@ from sklearn.metrics import r2_score
 file_path = "hip/hippocampus_single_achilles.h5"
 
 with h5py.File(file_path, 'r') as f:
-    cursor_times = f['cursor/timestamp_indices_1s'][:]
-    cursor_vel = f['cursor/vel'][:]
-    spike_times = f['spikes/timestamp_indices_1s'][:]
-    spike_units = f['spikes/unit_index'][:]
-    cursor_train_mask = f['cursor/train_mask'][:]
-    cursor_test_mask = f['cursor/test_mask'][:]
-    n_neurons = f['units/brain_area'].shape[0]
+    # cursor_times = f['cursor/timestamp_indices_1s'][:]
+    # cursor_vel = f['cursor/vel'][:]
+    # spike_times = f['spikes/timestamp_indices_1s'][:]
+    # spike_units = f['spikes/unit_index'][:]
+    # cursor_train_mask = f['cursor/train_mask'][:]
+    # cursor_test_mask = f['cursor/test_mask'][:]
+    # n_neurons = f['units/brain_area'].shape[0]
+    cursor_times = f['cursor/timestamp_indices_2s'][:]          # shape: (10178,)
+    cursor_vel = f['cursor/vel'][:]                              # shape: (10178, 2)
+    spike_times = f['spikes/timestamp_indices_2s'][:]            # shape: (42549,)
+    spike_units = f['spikes/unit_index'][:]                      # shape: (42549,)
+    cursor_train_mask = f['cursor/train_mask'][:]                # shape: (10178,)
+    cursor_test_mask = f['cursor/test_mask'][:]                  # shape: (10178,)
+    n_neurons = f['units/brain_area'].shape[0]                   # 120
 
 # اطمینان از هم‌سایز بودن داده‌های اسپایک
 min_spike_len = min(len(spike_times), len(spike_units))
