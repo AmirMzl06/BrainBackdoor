@@ -9,7 +9,7 @@ import torch.optim as optim
 from sklearn.metrics import r2_score
 
 # -------------------- مسیر فایل --------------------
-file_path = "hippocampus single achilles.h5"
+file_path = "hip/hippocampus_single_achilles.h5"
 
 # -------------------- بارگذاری داده‌ها از HDF5 --------------------
 with h5py.File(file_path, 'r') as f:
