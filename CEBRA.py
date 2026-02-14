@@ -19,15 +19,22 @@ with h5py.File(file_path, 'r') as f:
     cursor_test_mask = f['cursor/test_mask'][:]
     n_neurons = f['units/brain_area'].shape[0]
 
+# اطمینان از هم‌سایز بودن داده‌های اسپایک
+min_spike_len = min(len(spike_times), len(spike_units))
+spike_times = spike_times[:min_spike_len]
+spike_units = spike_units[:min_spike_len]
+
 n_samples = len(cursor_times)
 neural = np.zeros((n_samples, n_neurons), dtype=np.float32)
 
 indices = np.searchsorted(cursor_times, spike_times, side='right') - 1
 valid = (indices >= 0) & (indices < n_samples)
-indices = indices[valid]
-spike_units = spike_units[valid]
 
-for idx, unit in zip(indices, spike_units):
+# اعمال ماسک valid روی هر دو آرایه به صورت همزمان
+indices = indices[valid]
+filtered_spike_units = spike_units[valid]
+
+for idx, unit in zip(indices, filtered_spike_units):
     neural[idx, unit] += 1
 
 print("Shape of neural matrix:", neural.shape)
@@ -47,15 +54,11 @@ else:
     label_test = cursor_vel[split_idx:]
     print("Using random 80/20 split.")
 
-print(f"Train neural: {neural_train.shape}, Test neural: {neural_test.shape}")
-print(f"Train labels: {label_train.shape}, Test labels: {label_test.shape}")
-
 max_iterations = 10000
 output_dimension = 32
 save_path = "./models"
 os.makedirs(save_path, exist_ok=True)
 
-print("--- Training CEBRA Model (Velocity) ---")
 cebra_pos_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=3e-4,
@@ -70,25 +73,6 @@ cebra_pos_model = CEBRA(model_architecture='offset10-model',
 
 cebra_pos_model.fit(neural_train, label_train)
 cebra_pos_model.save(os.path.join(save_path, "cebra_pos_model.pt"))
-print("--- CEBRA Model Saved ---")
-
-print("--- Training Shuffled CEBRA Model ---")
-cebra_pos_shuffled_model = CEBRA(model_architecture='offset10-model',
-                                 batch_size=512,
-                                 learning_rate=3e-4,
-                                 temperature=1,
-                                 output_dimension=output_dimension,
-                                 max_iterations=max_iterations,
-                                 distance='cosine',
-                                 conditional='behavior',
-                                 device='cuda_if_available',
-                                 verbose=True,
-                                 time_offsets=10)
-
-shuffled_pos = np.random.permutation(label_train)
-cebra_pos_shuffled_model.fit(neural_train, shuffled_pos)
-cebra_pos_shuffled_model.save(os.path.join(save_path, "cebra_pos_shuffled_model.pt"))
-print("--- Shuffled Model Saved ---")
 
 cebra_pos_train = cebra_pos_model.transform(neural_train)
 cebra_pos_test = cebra_pos_model.transform(neural_test)
@@ -105,55 +89,45 @@ class RobustDecoder(nn.Module):
             nn.ReLU(),
             nn.Linear(64, 2)
         )
-
     def forward(self, x):
         return self.net(x)
 
 def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=5000, lr=0.01):
-    y_train = label_train
-    y_test = label_test
-    y_min = y_train.min(axis=0)
-    y_max = y_train.max(axis=0)
+    y_train, y_test = label_train, label_test
+    y_min, y_max = y_train.min(axis=0), y_train.max(axis=0)
     y_train_norm = (y_train - y_min) / (y_max - y_min)
-
+    
     X_train = torch.FloatTensor(emb_train)
     y_train_target = torch.FloatTensor(y_train_norm)
     X_test = torch.FloatTensor(emb_test)
-
+    
     model = RobustDecoder(input_dim=emb_train.shape[1])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     X_train, y_train_target, X_test = X_train.to(device), y_train_target.to(device), X_test.to(device)
-
+    
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=20, factor=0.5)
-
-    print(f"\n{'Epoch':<8} | {'Loss':<12} | {'R2 Score (mean over dims)':<20}")
+    
     for epoch in range(epochs):
         model.train()
         optimizer.zero_grad()
-        outputs_norm = model(X_train)
-        loss = criterion(outputs_norm, y_train_target)
+        loss = criterion(model(X_train), y_train_target)
         loss.backward()
         optimizer.step()
-        scheduler.step(loss)
-
-        if (epoch + 1) % 500 == 0 or epoch == epochs - 1:
+        
+        if (epoch + 1) % 500 == 0:
             model.eval()
             with torch.no_grad():
                 pred_norm = model(X_test).cpu().numpy()
                 pred_real = pred_norm * (y_max - y_min) + y_min
                 r2 = r2_score(y_test, pred_real, multioutput='uniform_average')
-            print(f"{epoch+1:<8} | {loss.item():<12.4f} | {r2:<20.4f}")
-
+            print(f"Epoch {epoch+1} | Loss: {loss.item():.4f} | R2: {r2:.4f}")
+            
     return model, y_min, y_max
 
-print("--- Training MLP Decoder ---")
 decoder_model, y_min, y_max = train_decoder_optimized(cebra_pos_train, cebra_pos_test, label_train, label_test)
-
 print("--- Process Completed ---")
-
 
 # import os
 # import sys
