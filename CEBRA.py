@@ -88,7 +88,7 @@ class RobustDecoder(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=5000, lr=0.01):
+def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=500000, lr=0.01):
     y_train, y_test = label_train, label_test
     y_min, y_max = y_train.min(axis=0), y_train.max(axis=0)
     y_train_norm = (y_train - y_min) / (y_max - y_min)
