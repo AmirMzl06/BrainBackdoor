@@ -57,7 +57,7 @@ os.makedirs(save_path, exist_ok=True)
 
 cebra_pos_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
-                        learning_rate=3e-4,
+                        learning_rate=3e-3,
                         temperature=2,
                         output_dimension=output_dimension,
                         max_iterations=max_iterations,
