@@ -1,3 +1,16 @@
+
+import os
+import numpy as np
+import h5py
+import cebra
+from cebra import CEBRA
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.metrics import r2_score
+
+file_path = "hip/hippocampus_single_achilles.h5"
+
 def print_attrs(name, obj):
     print(name)
 
@@ -6,17 +19,6 @@ with h5py.File(file_path, 'r') as f:
     f.visititems(print_attrs)
 print("---------------------------")
 
-#import os
-# import numpy as np
-# import h5py
-# import cebra
-# from cebra import CEBRA
-# import torch
-# import torch.nn as nn
-# import torch.optim as optim
-# from sklearn.metrics import r2_score
-
-# file_path = "hip/hippocampus_single_achilles.h5"
 
 # with h5py.File(file_path, 'r') as f:
 #     cursor_vel = f['cursor/vel'][:]
