@@ -50,15 +50,15 @@ else:
     label_test = cursor_vel[split_idx:]
     print("Using random 80/20 split.")
 
-max_iterations = 1000
-output_dimension = 16
+max_iterations = 10000
+output_dimension = 32
 save_path = "./models"
 os.makedirs(save_path, exist_ok=True)
 
 cebra_pos_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=3e-4,
-                        temperature=0.1,
+                        temperature=2,
                         output_dimension=output_dimension,
                         max_iterations=max_iterations,
                         distance='cosine',
@@ -86,7 +86,7 @@ class RobustDecoder(nn.Module):
         return self.net(x)
 
 
-def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=5000, lr=0.001):
+def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=50000, lr=0.001):
     y_train, y_test = label_train, label_test
     y_min, y_max = y_train.min(axis=0), y_train.max(axis=0)
     y_train_norm = (y_train - y_min) / (y_max - y_min)
