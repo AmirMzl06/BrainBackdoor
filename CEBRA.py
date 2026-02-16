@@ -75,18 +75,16 @@ cebra_pos_test = cebra_pos_model.transform(neural_test)
 
 class RobustDecoder(nn.Module):
     def __init__(self, input_dim):
-        super(RobustDecoder, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(128, 64),
+            nn.Linear(input_dim, 64),
+            nn.LayerNorm(64),
             nn.ReLU(),
             nn.Linear(64, 2)
         )
     def forward(self, x):
         return self.net(x)
+
 
 def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=500000, lr=0.001):
     y_train, y_test = label_train, label_test
