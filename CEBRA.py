@@ -7,23 +7,15 @@ import torch.optim as optim
 from sklearn.metrics import r2_score
 from cebra import CEBRA
 
-# =========================
-# Load OFFICIAL CEBRA data
-# =========================
 data_path = "hip/achilles.jl"
 data = joblib.load(data_path)
 
-# spikes: (T, N_neurons, 10)
-# position: (T, 3)
 spikes = data["spikes"].astype(np.float32)
 position = data["position"].astype(np.float32)
 
 print("Spikes shape:", spikes.shape)
 print("Position shape:", position.shape)
 
-# =========================
-# Train / Test split (temporal)
-# =========================
 T = len(spikes)
 split_idx = int(0.8 * T)
 
@@ -33,9 +25,8 @@ neural_test  = spikes[split_idx:]
 label_train = position[:split_idx]   # (T, 3)
 label_test  = position[split_idx:]
 
-# =========================
-# Train CEBRA (joint on all 3 positions)
-# =========================
+# Train CEBRA 3 position
+
 cebra_model = CEBRA(
     model_architecture="offset10-model",
     batch_size=512,
@@ -55,17 +46,12 @@ cebra_model.fit(neural_train, label_train)
 os.makedirs("models", exist_ok=True)
 cebra_model.save("models/cebra_achilles.pt")
 
-# =========================
-# Get embeddings
-# =========================
 emb_train = cebra_model.transform(neural_train)
 emb_test  = cebra_model.transform(neural_test)
 
 print("Embedding shape:", emb_train.shape)
 
-# =========================
-# Decoder (3D output)
-# =========================
+#decoder
 class RobustDecoder(nn.Module):
     def __init__(self, input_dim, output_dim=3):
         super().__init__()
@@ -85,7 +71,6 @@ def train_decoder(
     epochs=20000,
     lr=1e-3
 ):
-    # --- normalize each dimension separately
     y_min = y_train.min(axis=0, keepdims=True)
     y_max = y_train.max(axis=0, keepdims=True)
     y_train_norm = (y_train - y_min) / (y_max - y_min)
@@ -131,9 +116,7 @@ def train_decoder(
 
     return model
 
-# =========================
 # Train decoder
-# =========================
 decoder = train_decoder(
     emb_train, emb_test,
     label_train, label_test
