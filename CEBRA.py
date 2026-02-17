@@ -14,7 +14,7 @@ data_path = "hip/achilles.jl"
 data = joblib.load(data_path)
 
 # spikes: (T, N_neurons, 10)
-# position: (T, 3) -> [position, right, left]
+# position: (T, 3)
 spikes = data["spikes"].astype(np.float32)
 position = data["position"].astype(np.float32)
 
@@ -30,11 +30,11 @@ split_idx = int(0.8 * T)
 neural_train = spikes[:split_idx]
 neural_test  = spikes[split_idx:]
 
-label_train = position[:split_idx]
+label_train = position[:split_idx]   # (T, 3)
 label_test  = position[split_idx:]
 
 # =========================
-# Train CEBRA
+# Train CEBRA (joint on all 3 positions)
 # =========================
 cebra_model = CEBRA(
     model_architecture="offset10-model",
@@ -64,20 +64,16 @@ emb_test  = cebra_model.transform(neural_test)
 print("Embedding shape:", emb_train.shape)
 
 # =========================
-# Decoder (Position only)
+# Decoder (3D output)
 # =========================
-# فقط position (column 0)
-y_train = label_train[:, [0]]
-y_test  = label_test[:, [0]]
-
 class RobustDecoder(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, output_dim=3):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(input_dim, 128),
             nn.LayerNorm(128),
             nn.ReLU(),
-            nn.Linear(128, 1)
+            nn.Linear(128, output_dim)
         )
 
     def forward(self, x):
@@ -89,7 +85,9 @@ def train_decoder(
     epochs=20000,
     lr=1e-3
 ):
-    y_min, y_max = y_train.min(), y_train.max()
+    # --- normalize each dimension separately
+    y_min = y_train.min(axis=0, keepdims=True)
+    y_max = y_train.max(axis=0, keepdims=True)
     y_train_norm = (y_train - y_min) / (y_max - y_min)
 
     X_train = torch.tensor(emb_train)
@@ -98,12 +96,10 @@ def train_decoder(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = RobustDecoder(emb_train.shape[1]).to(device)
-    X_train, X_test, y_train_norm = (
-        X_train.to(device),
-        X_test.to(device),
-        y_train_norm.to(device),
-    )
+    model = RobustDecoder(emb_train.shape[1], 3).to(device)
+    X_train = X_train.to(device)
+    X_test  = X_test.to(device)
+    y_train_norm = y_train_norm.to(device)
 
     opt = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     loss_fn = nn.MSELoss()
@@ -118,19 +114,167 @@ def train_decoder(
         if (epoch + 1) % 500 == 0:
             model.eval()
             with torch.no_grad():
-                pred = model(X_test).cpu().numpy()
-                pred = pred * (y_max - y_min) + y_min
-                r2 = r2_score(y_test, pred)
-            print(f"Epoch {epoch+1:5d} | Loss {loss.item():.4f} | R2 {r2:.4f}")
+                pred_norm = model(X_test).cpu().numpy()
+                pred = pred_norm * (y_max - y_min) + y_min
+
+                r2_0 = r2_score(y_test[:, 0], pred[:, 0])
+                r2_1 = r2_score(y_test[:, 1], pred[:, 1])
+                r2_2 = r2_score(y_test[:, 2], pred[:, 2])
+
+            print(
+                f"Epoch {epoch+1:5d} | "
+                f"Loss {loss.item():.4f} | "
+                f"R2 pos0: {r2_0:.4f} | "
+                f"R2 pos1: {r2_1:.4f} | "
+                f"R2 pos2: {r2_2:.4f}"
+            )
 
     return model
 
+# =========================
+# Train decoder
+# =========================
 decoder = train_decoder(
     emb_train, emb_test,
-    y_train, y_test
+    label_train, label_test
 )
 
 print("=== DONE ===")
+
+
+# import os
+# import joblib
+# import numpy as np
+# import torch
+# import torch.nn as nn
+# import torch.optim as optim
+# from sklearn.metrics import r2_score
+# from cebra import CEBRA
+
+# # =========================
+# # Load OFFICIAL CEBRA data
+# # =========================
+# data_path = "hip/achilles.jl"
+# data = joblib.load(data_path)
+
+# # spikes: (T, N_neurons, 10)
+# # position: (T, 3) -> [position, right, left]
+# spikes = data["spikes"].astype(np.float32)
+# position = data["position"].astype(np.float32)
+
+# print("Spikes shape:", spikes.shape)
+# print("Position shape:", position.shape)
+
+# # =========================
+# # Train / Test split (temporal)
+# # =========================
+# T = len(spikes)
+# split_idx = int(0.8 * T)
+
+# neural_train = spikes[:split_idx]
+# neural_test  = spikes[split_idx:]
+
+# label_train = position[:split_idx]
+# label_test  = position[split_idx:]
+
+# # =========================
+# # Train CEBRA
+# # =========================
+# cebra_model = CEBRA(
+#     model_architecture="offset10-model",
+#     batch_size=512,
+#     learning_rate=3e-4,
+#     temperature=1.0,
+#     output_dimension=32,
+#     max_iterations=10000,
+#     distance="cosine",
+#     conditional="time_delta",
+#     time_offsets=10,
+#     device="cuda_if_available",
+#     verbose=True,
+# )
+
+# cebra_model.fit(neural_train, label_train)
+
+# os.makedirs("models", exist_ok=True)
+# cebra_model.save("models/cebra_achilles.pt")
+
+# # =========================
+# # Get embeddings
+# # =========================
+# emb_train = cebra_model.transform(neural_train)
+# emb_test  = cebra_model.transform(neural_test)
+
+# print("Embedding shape:", emb_train.shape)
+
+# # =========================
+# # Decoder (Position only)
+# # =========================
+# # فقط position (column 0)
+# y_train = label_train[:, [0]]
+# y_test  = label_test[:, [0]]
+
+# class RobustDecoder(nn.Module):
+#     def __init__(self, input_dim):
+#         super().__init__()
+#         self.net = nn.Sequential(
+#             nn.Linear(input_dim, 128),
+#             nn.LayerNorm(128),
+#             nn.ReLU(),
+#             nn.Linear(128, 1)
+#         )
+
+#     def forward(self, x):
+#         return self.net(x)
+
+# def train_decoder(
+#     emb_train, emb_test,
+#     y_train, y_test,
+#     epochs=20000,
+#     lr=1e-3
+# ):
+#     y_min, y_max = y_train.min(), y_train.max()
+#     y_train_norm = (y_train - y_min) / (y_max - y_min)
+
+#     X_train = torch.tensor(emb_train)
+#     X_test  = torch.tensor(emb_test)
+#     y_train_norm = torch.tensor(y_train_norm)
+
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+#     model = RobustDecoder(emb_train.shape[1]).to(device)
+#     X_train, X_test, y_train_norm = (
+#         X_train.to(device),
+#         X_test.to(device),
+#         y_train_norm.to(device),
+#     )
+
+#     opt = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+#     loss_fn = nn.MSELoss()
+
+#     for epoch in range(epochs):
+#         model.train()
+#         opt.zero_grad()
+#         loss = loss_fn(model(X_train), y_train_norm)
+#         loss.backward()
+#         opt.step()
+
+#         if (epoch + 1) % 500 == 0:
+#             model.eval()
+#             with torch.no_grad():
+#                 pred = model(X_test).cpu().numpy()
+#                 pred = pred * (y_max - y_min) + y_min
+#                 r2 = r2_score(y_test, pred)
+#             print(f"Epoch {epoch+1:5d} | Loss {loss.item():.4f} | R2 {r2:.4f}")
+
+#     return model
+
+# decoder = train_decoder(
+#     emb_train, emb_test,
+#     y_train, y_test
+# )
+
+# print("=== DONE ===")
 
 
 # import os
