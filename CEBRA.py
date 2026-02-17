@@ -1,167 +1,135 @@
 import os
-import sys
 import numpy as np
 import h5py
 import torch
-from scipy.interpolate import interp1d
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsRegressor
+import torch.nn as nn
+import torch.optim as optim
 from sklearn.metrics import r2_score
+from scipy.interpolate import interp1d
 import cebra
 from cebra import CEBRA
 
-# ==========================================
-# 1. Configuration & Path
-# ==========================================
-FILE_PATH = "hip/hippocampus_single_achilles.h5"  # مسیر فایل خود را چک کنید
-BIN_SIZE = 0.025  # 25 ms bin size (Standard for rat hippocampus)
-OUTPUT_DIM = 32   # Embedding dimension
-MAX_ITER = 5000   # تعداد دورهای آموزش
-BATCH_SIZE = 512
+# --- تنظیمات اولیه ---
+file_path = "hip/hippocampus_single_achilles.h5"
+bin_size = 0.025 # 25ms bins
+save_path = "./models"
+os.makedirs(save_path, exist_ok=True)
 
-# ==========================================
-# 2. Custom Data Loader (Correct Way)
-# ==========================================
-def load_and_process_data(file_path, bin_size):
-    print(f"--- Loading file: {file_path} ---")
+# --- 1. لود کردن داده‌ها به سبک کد شما اما با اصلاح Binning ---
+with h5py.File(file_path, 'r') as f:
+    # لود داده‌های خام
+    spike_times = f['spikes/timestamp_indices_1s'][:]
+    spike_units = f['spikes/unit_index'][:]
+    cursor_times = f['cursor/timestamp_indices_1s'][:]
     
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    with h5py.File(file_path, 'r') as f:
-        # --- A. Load Spikes ---
-        # بررسی نام‌های مختلف برای اسپایک‌ها
-        if 'spikes/timestamp_indices_1s' in f:
-            spike_times = f['spikes/timestamp_indices_1s'][:]
-            spike_units = f['spikes/unit_index'][:]
-        else:
-            raise KeyError("Could not find spike timestamps in the file.")
-
-        # --- B. Load Continuous Behavior (Position/Direction) ---
-        # اولویت با Position است چون نورون‌های مکان (Place Cells) به مکان حساس‌اند
-        raw_pos = None
-        
-        # چک کردن کلیدهای مختلف که ممکن است در فایل باشند
-        possible_pos_keys = ['cursor/pos', 'cursor/position', 'agent/pos']
-        for key in possible_pos_keys:
-            if key in f:
-                raw_pos = f[key][:]
-                print(f"-> Found position data in: {key}")
-                break
-        
-        # اگر پوزیشن پیدا نشد، سراغ X و Y جداگانه می‌رویم
-        if raw_pos is None and 'cursor/x' in f:
-            px = f['cursor/x'][:]
-            py = f['cursor/y'][:]
-            raw_pos = np.stack([px, py], axis=1)
-            print("-> Constructed position from cursor/x and cursor/y")
-
-        # اگر باز هم پیدا نشد، سراغ سرعت می‌رویم (کمترین دقت)
-        if raw_pos is None:
-            print("!! WARNING: Position not found. Using Velocity. R2 might be lower.")
-            raw_pos = f['cursor/vel'][:]
-
-        # زمان‌های مربوط به حرکت (Cursor)
-        if 'cursor/timestamp_indices_1s' in f:
-            cursor_times = f['cursor/timestamp_indices_1s'][:]
-        else:
-            # اگر زمان نداشت، فرض می‌کنیم هم‌زمان با اسپایک‌هاست
-            cursor_times = np.linspace(spike_times.min(), spike_times.max(), len(raw_pos))
-
-    # --- C. Binning Spikes (The Logic of CEBRA) ---
-    # ساختن پنجره‌های زمانی
-    start_time = max(cursor_times.min(), spike_times.min())
-    end_time = min(cursor_times.max(), spike_times.max())
-    bins = np.arange(start_time, end_time, bin_size)
-    n_bins = len(bins) - 1
+    # پیدا کردن پوزیشن (به جای فقط سرعت)
+    if 'cursor/pos' in f:
+        labels = f['cursor/pos'][:]
+    elif 'cursor/vel' in f:
+        labels = f['cursor/vel'][:]
     
     n_neurons = int(spike_units.max()) + 1
-    neural_matrix = np.zeros((n_bins, n_neurons), dtype=np.float32)
-    
-    print(f"-> Binning spikes into {n_bins} time windows of {bin_size}s...")
-    for unit_id in range(n_neurons):
-        unit_spikes = spike_times[spike_units == unit_id]
-        counts, _ = np.histogram(unit_spikes, bins=bins)
-        neural_matrix[:, unit_id] = counts
 
-    # --- D. Aligning Behavior to Bins ---
-    # درونیابی (Interpolation) برای اینکه مکان دقیقاً وسط هر بازه زمانی محاسبه شود
-    bin_centers = (bins[:-1] + bins[1:]) / 2
-    
-    # ساخت تابع Interpolator
-    interpolator = interp1d(cursor_times, raw_pos, axis=0, bounds_error=False, fill_value="extrapolate")
-    continuous_index = interpolator(bin_centers)
+# --- 2. تبدیل اسپایک‌ها به ماتریس عصبی (Binning صحیح) ---
+# ایجاد بازه‌های زمانی ۲۵ میلی‌ثانیه‌ای
+t_start = max(cursor_times[0], spike_times.min())
+t_end = min(cursor_times[-1], spike_times.max())
+bins = np.arange(t_start, t_end, bin_size)
+n_bins = len(bins) - 1
 
-    return neural_matrix, continuous_index
+neural = np.zeros((n_bins, n_neurons), dtype=np.float32)
+for i in range(n_neurons):
+    unit_spikes = spike_times[spike_units == i]
+    counts, _ = np.histogram(unit_spikes, bins=bins)
+    neural[:, i] = counts
 
-# ==========================================
-# 3. Main Execution Pipeline
-# ==========================================
+# --- 3. تراز کردن لیبل‌ها با ماتریس عصبی ---
+bin_centers = (bins[:-1] + bins[1:]) / 2
+interpolator = interp1d(cursor_times, labels, axis=0, bounds_error=False, fill_value="extrapolate")
+aligned_labels = interpolator(bin_centers).astype(np.float32)
 
-# 1. Load Data
-try:
-    neural, behavior = load_and_process_data(FILE_PATH, BIN_SIZE)
-    print(f"Neural Shape: {neural.shape} (Time x Neurons)")
-    print(f"Behavior Shape: {behavior.shape} (Time x Features)")
-except Exception as e:
-    print(f"CRITICAL ERROR LOADING DATA: {e}")
-    sys.exit(1)
+print(f"Shape of neural matrix: {neural.shape}")
+print(f"Shape of labels: {aligned_labels.shape}")
 
-# 2. Prepare Data for CEBRA
-# Split train/test (80/20 standard)
+# --- 4. تقسیم‌بندی داده‌ها (80/20) ---
 split_idx = int(len(neural) * 0.8)
 neural_train, neural_test = neural[:split_idx], neural[split_idx:]
-label_train, label_test = behavior[:split_idx], behavior[split_idx:]
+label_train, label_test = aligned_labels[:split_idx], aligned_labels[split_idx:]
 
-# 3. Define CEBRA Model
-# نکته مهم: استفاده از hybrid=True و distance='cosine'
-cebra_model = CEBRA(
+# --- 5. آموزش مدل CEBRA ---
+cebra_pos_model = CEBRA(
     model_architecture='offset10-model',
-    batch_size=BATCH_SIZE,
-    learning_rate=3e-4,     # نرخ یادگیری استاندارد
-    temperature=1,          # دمای پایین‌تر برای پایداری
-    output_dimension=OUTPUT_DIM,
-    max_iterations=MAX_ITER,
+    batch_size=512,
+    learning_rate=3e-4,
+    temperature=1,
+    output_dimension=32,
+    max_iterations=5000,
     distance='cosine',
     conditional='time_delta',
     device='cuda_if_available',
     verbose=True,
     time_offsets=10,
-    hybrid=True             # <--- این پارامتر برای استفاده از لیبل‌ها حیاتی است
+    hybrid=True # بسیار مهم برای R2 مثبت
 )
 
-print("\n--- Starting CEBRA Training ---")
-cebra_model.fit(neural_train, label_train)
-print("--- Training Finished ---")
+cebra_pos_model.fit(neural_train, label_train)
+cebra_pos_model.save(os.path.join(save_path, "cebra_pos_model.pt"))
 
-# 4. Transform (Get Embeddings)
-embedding_train = cebra_model.transform(neural_train)
-embedding_test = cebra_model.transform(neural_test)
+cebra_pos_train = cebra_pos_model.transform(neural_train)
+cebra_pos_test = cebra_pos_model.transform(neural_test)
 
-# ==========================================
-# 4. Decoding & Evaluation (KNN)
-# ==========================================
-print("\n--- Starting Decoding (KNN) ---")
+# --- 6. دکودر اختصاصی شما (RobustDecoder) ---
+class RobustDecoder(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.LayerNorm(64),
+            nn.ReLU(),
+            nn.Linear(64, output_dim)
+        )
+    def forward(self, x):
+        return self.net(x)
 
-# استفاده از KNN (دقیقاً مثل مقالات CEBRA)
-# CEBRA Embedding بر اساس Cosine است، پس متریک KNN هم باید Cosine باشد
-decoder = KNeighborsRegressor(n_neighbors=36, metric='cosine')
+def train_decoder_optimized(emb_train, emb_test, label_train, label_test, epochs=5000, lr=0.001):
+    y_train, y_test = label_train, label_test
+    y_min, y_max = y_train.min(axis=0), y_train.max(axis=0)
+    # جلوگیری از تقسیم بر صفر در صورت ثابت بودن یک ستون
+    y_range = np.where((y_max - y_min) == 0, 1, y_max - y_min)
+    y_train_norm = (y_train - y_min) / y_range
+    
+    X_train = torch.FloatTensor(emb_train)
+    y_train_target = torch.FloatTensor(y_train_norm)
+    X_test = torch.FloatTensor(emb_test)
+    
+    model = RobustDecoder(input_dim=emb_train.shape[1], output_dim=label_train.shape[1])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    X_train, y_train_target, X_test = X_train.to(device), y_train_target.to(device), X_test.to(device)
+    
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    
+    for epoch in range(epochs):
+        model.train()
+        optimizer.zero_grad()
+        loss = criterion(model(X_train), y_train_target)
+        loss.backward()
+        optimizer.step()
+        
+        if (epoch + 1) % 500 == 0:
+            model.eval()
+            with torch.no_grad():
+                pred_norm = model(X_test).cpu().numpy()
+                pred_real = pred_norm * y_range + y_min
+                r2 = r2_score(y_test, pred_real, multioutput='uniform_average')
+            print(f"Epoch {epoch+1} | Loss: {loss.item():.4f} | R2: {r2:.4f}")
+            
+    return model, y_min, y_range
 
-decoder.fit(embedding_train, label_train)
-prediction = decoder.predict(embedding_test)
-
-# محاسبه R2
-r2 = r2_score(label_test, prediction)
-print(f"\n========================================")
-print(f"FINAL R2 SCORE: {r2:.4f}")
-print(f"========================================")
-
-# نمایش R2 برای هر متغیر جداگانه (مثلاً X و Y)
-if behavior.shape[1] > 1:
-    r2_multi = r2_score(label_test, prediction, multioutput='raw_values')
-    for i, score in enumerate(r2_multi):
-        print(f"Dimension {i} (e.g., X, Y, Dir): R2 = {score:.4f}")
-
+# اجرای نهایی
+decoder_model, y_min, y_range = train_decoder_optimized(cebra_pos_train, cebra_pos_test, label_train, label_test)
+print("--- Process Completed ---")
 
 
 
