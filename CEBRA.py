@@ -1,15 +1,179 @@
 import os
+import sys
 import numpy as np
 import h5py
+import torch
+from scipy.interpolate import interp1d
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.metrics import r2_score
 import cebra
 from cebra import CEBRA
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from sklearn.metrics import r2_score
+
+# ==========================================
+# 1. Configuration & Path
+# ==========================================
+FILE_PATH = "hip/hippocampus_single_achilles.h5"  # مسیر فایل خود را چک کنید
+BIN_SIZE = 0.025  # 25 ms bin size (Standard for rat hippocampus)
+OUTPUT_DIM = 32   # Embedding dimension
+MAX_ITER = 5000   # تعداد دورهای آموزش
+BATCH_SIZE = 512
+
+# ==========================================
+# 2. Custom Data Loader (Correct Way)
+# ==========================================
+def load_and_process_data(file_path, bin_size):
+    print(f"--- Loading file: {file_path} ---")
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    with h5py.File(file_path, 'r') as f:
+        # --- A. Load Spikes ---
+        # بررسی نام‌های مختلف برای اسپایک‌ها
+        if 'spikes/timestamp_indices_1s' in f:
+            spike_times = f['spikes/timestamp_indices_1s'][:]
+            spike_units = f['spikes/unit_index'][:]
+        else:
+            raise KeyError("Could not find spike timestamps in the file.")
+
+        # --- B. Load Continuous Behavior (Position/Direction) ---
+        # اولویت با Position است چون نورون‌های مکان (Place Cells) به مکان حساس‌اند
+        raw_pos = None
+        
+        # چک کردن کلیدهای مختلف که ممکن است در فایل باشند
+        possible_pos_keys = ['cursor/pos', 'cursor/position', 'agent/pos']
+        for key in possible_pos_keys:
+            if key in f:
+                raw_pos = f[key][:]
+                print(f"-> Found position data in: {key}")
+                break
+        
+        # اگر پوزیشن پیدا نشد، سراغ X و Y جداگانه می‌رویم
+        if raw_pos is None and 'cursor/x' in f:
+            px = f['cursor/x'][:]
+            py = f['cursor/y'][:]
+            raw_pos = np.stack([px, py], axis=1)
+            print("-> Constructed position from cursor/x and cursor/y")
+
+        # اگر باز هم پیدا نشد، سراغ سرعت می‌رویم (کمترین دقت)
+        if raw_pos is None:
+            print("!! WARNING: Position not found. Using Velocity. R2 might be lower.")
+            raw_pos = f['cursor/vel'][:]
+
+        # زمان‌های مربوط به حرکت (Cursor)
+        if 'cursor/timestamp_indices_1s' in f:
+            cursor_times = f['cursor/timestamp_indices_1s'][:]
+        else:
+            # اگر زمان نداشت، فرض می‌کنیم هم‌زمان با اسپایک‌هاست
+            cursor_times = np.linspace(spike_times.min(), spike_times.max(), len(raw_pos))
+
+    # --- C. Binning Spikes (The Logic of CEBRA) ---
+    # ساختن پنجره‌های زمانی
+    start_time = max(cursor_times.min(), spike_times.min())
+    end_time = min(cursor_times.max(), spike_times.max())
+    bins = np.arange(start_time, end_time, bin_size)
+    n_bins = len(bins) - 1
+    
+    n_neurons = int(spike_units.max()) + 1
+    neural_matrix = np.zeros((n_bins, n_neurons), dtype=np.float32)
+    
+    print(f"-> Binning spikes into {n_bins} time windows of {bin_size}s...")
+    for unit_id in range(n_neurons):
+        unit_spikes = spike_times[spike_units == unit_id]
+        counts, _ = np.histogram(unit_spikes, bins=bins)
+        neural_matrix[:, unit_id] = counts
+
+    # --- D. Aligning Behavior to Bins ---
+    # درونیابی (Interpolation) برای اینکه مکان دقیقاً وسط هر بازه زمانی محاسبه شود
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    
+    # ساخت تابع Interpolator
+    interpolator = interp1d(cursor_times, raw_pos, axis=0, bounds_error=False, fill_value="extrapolate")
+    continuous_index = interpolator(bin_centers)
+
+    return neural_matrix, continuous_index
+
+# ==========================================
+# 3. Main Execution Pipeline
+# ==========================================
+
+# 1. Load Data
+try:
+    neural, behavior = load_and_process_data(FILE_PATH, BIN_SIZE)
+    print(f"Neural Shape: {neural.shape} (Time x Neurons)")
+    print(f"Behavior Shape: {behavior.shape} (Time x Features)")
+except Exception as e:
+    print(f"CRITICAL ERROR LOADING DATA: {e}")
+    sys.exit(1)
+
+# 2. Prepare Data for CEBRA
+# Split train/test (80/20 standard)
+split_idx = int(len(neural) * 0.8)
+neural_train, neural_test = neural[:split_idx], neural[split_idx:]
+label_train, label_test = behavior[:split_idx], behavior[split_idx:]
+
+# 3. Define CEBRA Model
+# نکته مهم: استفاده از hybrid=True و distance='cosine'
+cebra_model = CEBRA(
+    model_architecture='offset10-model',
+    batch_size=BATCH_SIZE,
+    learning_rate=3e-4,     # نرخ یادگیری استاندارد
+    temperature=1,          # دمای پایین‌تر برای پایداری
+    output_dimension=OUTPUT_DIM,
+    max_iterations=MAX_ITER,
+    distance='cosine',
+    conditional='time_delta',
+    device='cuda_if_available',
+    verbose=True,
+    time_offsets=10,
+    hybrid=True             # <--- این پارامتر برای استفاده از لیبل‌ها حیاتی است
+)
+
+print("\n--- Starting CEBRA Training ---")
+cebra_model.fit(neural_train, label_train)
+print("--- Training Finished ---")
+
+# 4. Transform (Get Embeddings)
+embedding_train = cebra_model.transform(neural_train)
+embedding_test = cebra_model.transform(neural_test)
+
+# ==========================================
+# 4. Decoding & Evaluation (KNN)
+# ==========================================
+print("\n--- Starting Decoding (KNN) ---")
+
+# استفاده از KNN (دقیقاً مثل مقالات CEBRA)
+# CEBRA Embedding بر اساس Cosine است، پس متریک KNN هم باید Cosine باشد
+decoder = KNeighborsRegressor(n_neighbors=36, metric='cosine')
+
+decoder.fit(embedding_train, label_train)
+prediction = decoder.predict(embedding_test)
+
+# محاسبه R2
+r2 = r2_score(label_test, prediction)
+print(f"\n========================================")
+print(f"FINAL R2 SCORE: {r2:.4f}")
+print(f"========================================")
+
+# نمایش R2 برای هر متغیر جداگانه (مثلاً X و Y)
+if behavior.shape[1] > 1:
+    r2_multi = r2_score(label_test, prediction, multioutput='raw_values')
+    for i, score in enumerate(r2_multi):
+        print(f"Dimension {i} (e.g., X, Y, Dir): R2 = {score:.4f}")
 
 
-hippocampus_pos = cebra.datasets.init('rat-hippocampus-single-achilles')
+
+
+# import os
+# import numpy as np
+# import h5py
+# import cebra
+# from cebra import CEBRA
+# import torch
+# import torch.nn as nn
+# import torch.optim as optim
+# from sklearn.metrics import r2_score
 
 
 # file_path = "hip/hippocampus_single_achilles.h5"
