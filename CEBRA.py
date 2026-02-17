@@ -57,15 +57,16 @@ os.makedirs(save_path, exist_ok=True)
 
 cebra_pos_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
-                        learning_rate=3e-3,
-                        temperature=2,
+                        learning_rate=3e-4,
+                        temperature=1,
                         output_dimension=output_dimension,
                         max_iterations=max_iterations,
                         distance='cosine',
                         conditional='time_delta',
                         device='cuda_if_available',
                         verbose=True,
-                        time_offsets=10)
+                        time_offsets=10,
+                        hybrid = True)
 
 cebra_pos_model.fit(neural_train, label_train)
 cebra_pos_model.save(os.path.join(save_path, "cebra_pos_model.pt"))
