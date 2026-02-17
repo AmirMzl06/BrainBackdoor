@@ -142,7 +142,6 @@ file_path = "hip/hippocampus_single_achilles.h5"
 
 if not os.path.exists(file_path):
     print(f"Error: File not found at {file_path}")
-    # Agar file nist, inja code motevaghef mishe
     exit()
 
 print("Loading data...")
@@ -153,45 +152,34 @@ with h5py.File(file_path, 'r') as f:
     spike_units = f['spikes/unit_index'][:]
     cursor_train_mask = f['cursor/train_mask'][:]
     cursor_test_mask = f['cursor/test_mask'][:]
-    # Check shape of brain area to define n_neurons correctly
     if 'units/brain_area' in f:
         n_neurons = f['units/brain_area'].shape[0]
     else:
         n_neurons = int(spike_units.max()) + 1
 
 n_samples = len(cursor_vel)
-# Ensure spike arrays are consistent
 min_spike_len = min(len(spike_times), len(spike_units))
 spike_times = spike_times[:min_spike_len]
 spike_units = spike_units[:min_spike_len]
 
-# --- 2. Create Neural Matrix (Vectorized & Fast) ---
 print("Binning spikes...")
 neural = np.zeros((n_samples, n_neurons), dtype=np.float32)
 
-# Find which time bin each spike belongs to
 indices = np.searchsorted(cursor_times, spike_times, side='right') - 1
 
-# Filter valid spikes (within recording time)
 valid_mask = (indices >= 0) & (indices < n_samples)
 valid_indices = indices[valid_mask]
 valid_units = spike_units[valid_mask]
 
-# Vectorized addition (No for-loop needed) -> Much faster
 np.add.at(neural, (valid_indices, valid_units), 1)
 
 print(f"Neural matrix shape (Raw): {neural.shape}")
 
-# --- 3. Smoothing (CRITICAL STEP) ---
-# Smoothing helps CEBRA find the continuous manifold in sparse data
-# Sigma=2 roughly means smoothing over ~2-4 time bins. Adjust if needed.
 print("Smoothing neural data...")
 neural_smooth = gaussian_filter1d(neural, sigma=2.0, axis=0)
 
-# --- 4. Train/Test Split ---
 if cursor_train_mask.sum() > 0 and cursor_test_mask.sum() > 0:
     print("Using provided train/test masks.")
-    # Convert masks to boolean if they aren't already
     train_mask = cursor_train_mask.astype(bool)
     test_mask = cursor_test_mask.astype(bool)
     
@@ -207,18 +195,16 @@ else:
     label_train = cursor_vel[:split_idx]
     label_test = cursor_vel[split_idx:]
 
-# --- 5. CEBRA Model ---
-max_iterations = 15000  # Increased slightly for better convergence
-output_dimension = 16   # Reduced from 32 (too high dims can add noise)
+max_iterations = 15000 
+output_dimension = 16  
 save_path = "./models"
 os.makedirs(save_path, exist_ok=True)
 
 print("Initializing CEBRA...")
-# Note: Temperature reduced to 1 (sharper manifold), output_dim optimized
 cebra_pos_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=3e-3,
-                        temperature=1,       # Lower temperature usually better for decoding
+                        temperature=1,   
                         output_dimension=output_dimension,
                         max_iterations=max_iterations,
                         distance='cosine',
@@ -231,16 +217,12 @@ print("Fitting CEBRA model...")
 cebra_pos_model.fit(neural_train, label_train)
 cebra_pos_model.save(os.path.join(save_path, "cebra_pos_model.pt"))
 
-# Transform data to embedding space
 print("Transforming data...")
 embedding_train = cebra_pos_model.transform(neural_train)
 embedding_test = cebra_pos_model.transform(neural_test)
 
-# --- 6. Decoding (Standard sklearn approach) ---
 print("\n--- Decoding Results ---")
 
-# Method A: k-NN Regressor (Best for Manifolds)
-# metric='cosine' is important because CEBRA uses cosine distance
 knn = KNeighborsRegressor(n_neighbors=25, metric='cosine', weights='distance')
 knn.fit(embedding_train, label_train)
 knn_pred = knn.predict(embedding_test)
@@ -248,7 +230,6 @@ r2_knn = r2_score(label_test, knn_pred)
 
 print(f"k-NN Regressor (k=25) R2 Score: {r2_knn:.4f}")
 
-# Method B: Linear Ridge Regression (Baseline)
 ridge = Ridge(alpha=1.0)
 ridge.fit(embedding_train, label_train)
 ridge_pred = ridge.predict(embedding_test)
