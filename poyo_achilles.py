@@ -59,15 +59,35 @@ class HippocampusDataset(Dataset):
             "output_timestamps": latent_timestamps
         }
 
-
 def custom_collate_fn(batch):
     input_unit_index = [item['input_unit_index'] for item in batch]
     input_timestamps = [item['input_timestamps'] for item in batch]
     input_token_type = [item['input_token_type'] for item in batch]
 
-    padded_unit_index = torch.nn.utils.rnn.pad_sequence(input_unit_index, batch_first=True, padding_value=0)
-    padded_timestamps = torch.nn.utils.rnn.pad_sequence(input_timestamps, batch_first=True, padding_value=0.0)
-    padded_token_type = torch.nn.utils.rnn.pad_sequence(input_token_type, batch_first=True, padding_value=0)
+    padded_unit_index = torch.nn.utils.rnn.pad_sequence(
+        input_unit_index, batch_first=True, padding_value=0
+    )
+    padded_timestamps = torch.nn.utils.rnn.pad_sequence(
+        input_timestamps, batch_first=True, padding_value=0.0
+    )
+    padded_token_type = torch.nn.utils.rnn.pad_sequence(
+        input_token_type, batch_first=True, padding_value=0
+    )
+
+    # 🔥 NEW: pad to multiple of 8
+    seq_len = padded_unit_index.shape[1]
+    pad_len = (8 - seq_len % 8) % 8
+
+    if pad_len > 0:
+        padded_unit_index = torch.nn.functional.pad(
+            padded_unit_index, (0, pad_len), value=0
+        )
+        padded_timestamps = torch.nn.functional.pad(
+            padded_timestamps, (0, pad_len), value=0.0
+        )
+        padded_token_type = torch.nn.functional.pad(
+            padded_token_type, (0, pad_len), value=0
+        )
 
     input_mask = padded_token_type > 0
 
@@ -96,6 +116,43 @@ def custom_collate_fn(batch):
         },
         "target_values": target_values
     }
+
+# def custom_collate_fn(batch):
+#     input_unit_index = [item['input_unit_index'] for item in batch]
+#     input_timestamps = [item['input_timestamps'] for item in batch]
+#     input_token_type = [item['input_token_type'] for item in batch]
+
+#     padded_unit_index = torch.nn.utils.rnn.pad_sequence(input_unit_index, batch_first=True, padding_value=0)
+#     padded_timestamps = torch.nn.utils.rnn.pad_sequence(input_timestamps, batch_first=True, padding_value=0.0)
+#     padded_token_type = torch.nn.utils.rnn.pad_sequence(input_token_type, batch_first=True, padding_value=0)
+
+#     input_mask = padded_token_type > 0
+
+#     latent_timestamps = torch.stack([item['latent_timestamps'] for item in batch])
+#     output_timestamps = torch.stack([item['output_timestamps'] for item in batch])
+#     target_values = torch.stack([item['target_values'] for item in batch])
+
+#     batch_size = len(batch)
+#     num_latents = latent_timestamps.shape[1]
+#     latent_index = torch.arange(num_latents).unsqueeze(0).repeat(batch_size, 1)
+
+#     output_decoder_index = torch.zeros(batch_size, num_latents, dtype=torch.long)
+#     output_session_index = torch.zeros(batch_size, num_latents, dtype=torch.long)
+
+#     return {
+#         "model_inputs": {
+#             "input_unit_index": padded_unit_index,
+#             "input_timestamps": padded_timestamps,
+#             "input_token_type": padded_token_type,
+#             "input_mask": input_mask,
+#             "latent_index": latent_index,
+#             "latent_timestamps": latent_timestamps,
+#             "output_timestamps": output_timestamps,
+#             "output_decoder_index": output_decoder_index,
+#             "output_session_index": output_session_index,
+#         },
+#         "target_values": target_values
+#     }
 
 
 
