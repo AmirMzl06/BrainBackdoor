@@ -180,9 +180,11 @@ print("Model and Vocab initialized. Starting Training...")
 
 num_epochs = 20
 
+scaler = torch.cuda.amp.GradScaler()
+
 for epoch in range(num_epochs):
     model.train()
-    train_loss = 0
+    train_loss = 0.0
 
     for batch_idx, batch_data in enumerate(train_loader):
         inputs = {k: v.to(device) for k, v in batch_data["model_inputs"].items()}
@@ -190,15 +192,16 @@ for epoch in range(num_epochs):
 
         optimizer.zero_grad()
 
-        # Forward Pass
-        outputs_dict = model(**inputs)
-        pred = outputs_dict["position"] 
+        with torch.cuda.amp.autocast(dtype=torch.float16):
+            outputs_dict = model(**inputs)
+            pred = outputs_dict["position"]
 
-        flat_targets = targets.view(-1, targets.size(-1))
+            flat_targets = targets.view(-1, targets.size(-1))
+            loss = criterion(pred, flat_targets)
 
-        loss = criterion(pred, flat_targets)
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
         train_loss += loss.item()
 
@@ -206,7 +209,7 @@ for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1} | Batch {batch_idx} | Loss: {loss.item():.4f}")
 
     model.eval()
-    val_loss = 0
+    val_loss = 0.0
     all_preds = []
     all_targets = []
 
@@ -215,15 +218,17 @@ for epoch in range(num_epochs):
             inputs = {k: v.to(device) for k, v in batch_data["model_inputs"].items()}
             targets = batch_data["target_values"].to(device)
 
-            outputs_dict = model(**inputs)
-            pred = outputs_dict["position"]
+            with torch.cuda.amp.autocast(dtype=torch.float16):
+                outputs_dict = model(**inputs)
+                pred = outputs_dict["position"]
 
-            flat_targets = targets.view(-1, targets.size(-1))
+                flat_targets = targets.view(-1, targets.size(-1))
+                loss = criterion(pred, flat_targets)
 
-            val_loss += criterion(pred, flat_targets).item()
+            val_loss += loss.item()
 
-            all_preds.append(pred.cpu().numpy())
-            all_targets.append(flat_targets.cpu().numpy())
+            all_preds.append(pred.float().cpu().numpy())
+            all_targets.append(flat_targets.float().cpu().numpy())
 
     all_preds_concatenated = np.concatenate(all_preds, axis=0)
     all_targets_concatenated = np.concatenate(all_targets, axis=0)
