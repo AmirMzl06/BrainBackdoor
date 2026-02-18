@@ -39,6 +39,7 @@ cebra_model = CEBRA(
     time_offsets=10,
     device="cuda_if_available",
     verbose=True,
+    hybrid = True
 )
 
 cebra_model.fit(neural_train, label_train)
