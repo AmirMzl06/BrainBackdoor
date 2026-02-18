@@ -124,67 +124,65 @@ neural_test = spikes[split_idx:]
 label_train = position[:split_idx]
 label_test = position[split_idx:]
 
-SAMPLING_RATE = 100.0
-WINDOW_SIZE = 1.0
 
-train_ds = HippocampusDataset(neural_train, label_train, window_size=WINDOW_SIZE, sampling_rate=SAMPLING_RATE)
-test_ds = HippocampusDataset(neural_test, label_test, window_size=WINDOW_SIZE, sampling_rate=SAMPLING_RATE)
 
-train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, collate_fn=custom_collate_fn, num_workers=0)
-test_loader = DataLoader(test_ds, batch_size=32, shuffle=False, collate_fn=custom_collate_fn, num_workers=0)
-
-from torch_brain.models import POYOPlus
-from torch_brain.registry import ModalitySpec
+import numpy as np
+import torch
+import torch.nn as nn
+from sklearn.metrics import r2_score
 
 output_dim = position.shape[1]
+
 position_readout_spec = ModalitySpec(
-    id="position",
+    id=0,
     dim=output_dim,
-    type="continuous"
+    type=0,                          
+    timestamp_key="output_timestamps",
+    value_key="target_values",
+    loss_fn=nn.MSELoss()
 )
 
 model = POYOPlus(
-    sequence_length=WINDOW_SIZE,
-    readout_specs={"position": position_readout_spec},
-    latent_step=1.0 / 8,
-    num_latents_per_step=32,
     dim=128,
     depth=4,
+    readout_specs={"position": position_readout_spec},
+    latent_step=1.0/8,
+    sequence_length=WINDOW_SIZE,
+    num_latents_per_step=32,
     dim_head=32,
-    cross_heads=4,
     self_heads=4,
-    num_units=spikes.shape[1] + 1,
-    num_sessions=2
+    cross_heads=4,
 ).to(device)
 
-unit_ids = [str(i) for i in range(spikes.shape[1])]
+num_units = spikes.shape[1]
+unit_ids = [str(i) for i in range(num_units)]
+model.unit_emb.initialize_vocab(unit_ids)
+model.session_emb.initialize_vocab(["session_0"])
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-2)
 criterion = nn.MSELoss()
 
+print("Model and Vocab initialized. Starting Training...")
+
 num_epochs = 20
 
-print("\nStarting Training...")
 for epoch in range(num_epochs):
     model.train()
     train_loss = 0
 
     for batch_idx, batch_data in enumerate(train_loader):
         inputs = {k: v.to(device) for k, v in batch_data["model_inputs"].items()}
-        targets = batch_data["target_values"].to(device)  # (B, Time, 3)
+        targets = batch_data["target_values"].to(device)
 
         optimizer.zero_grad()
 
         # Forward Pass
         outputs_dict = model(**inputs)
+        pred = outputs_dict["position"] 
 
-        if isinstance(outputs_dict, dict):
-            pred = outputs_dict["position"]
-        else:
-            pred = outputs_dict
+        flat_targets = targets.view(-1, targets.size(-1))
 
-        loss = criterion(pred, targets)
-
+        loss = criterion(pred, flat_targets)
         loss.backward()
         optimizer.step()
 
@@ -193,7 +191,6 @@ for epoch in range(num_epochs):
         if batch_idx % 50 == 0:
             print(f"Epoch {epoch + 1} | Batch {batch_idx} | Loss: {loss.item():.4f}")
 
-    # --- Validation ---
     model.eval()
     val_loss = 0
     all_preds = []
@@ -205,21 +202,123 @@ for epoch in range(num_epochs):
             targets = batch_data["target_values"].to(device)
 
             outputs_dict = model(**inputs)
-            if isinstance(outputs_dict, dict):
-                pred = outputs_dict["position"]
-            else:
-                pred = outputs_dict
+            pred = outputs_dict["position"]
 
-            val_loss += criterion(pred, targets).item()
+            flat_targets = targets.view(-1, targets.size(-1))
+
+            val_loss += criterion(pred, flat_targets).item()
 
             all_preds.append(pred.cpu().numpy())
-            all_targets.append(targets.cpu().numpy())
+            all_targets.append(flat_targets.cpu().numpy())
 
-    all_preds = np.concatenate(all_preds, axis=0).reshape(-1, output_dim)
-    all_targets = np.concatenate(all_targets, axis=0).reshape(-1, output_dim)
-    r2 = r2_score(all_targets, all_preds)
+    all_preds_concatenated = np.concatenate(all_preds, axis=0)
+    all_targets_concatenated = np.concatenate(all_targets, axis=0)
 
-    print(
-        f"==> Epoch {epoch + 1} Finished. Avg Train Loss: {train_loss / len(train_loader):.4f} | Val Loss: {val_loss / len(test_loader):.4f} | R2 Score: {r2:.4f}")
+    r2 = r2_score(all_targets_concatenated, all_preds_concatenated)
 
-print("Training Complete.")
+    print(f"--- Epoch {epoch + 1} Finished ---")
+    print(f"Avg Train Loss: {train_loss / len(train_loader):.4f}")
+    print(f"Val Loss: {val_loss / len(test_loader):.4f}")
+    print(f"R2 Score: {r2:.4f}")
+    print("-" * 30)
+
+print("Training Complete!")
+# SAMPLING_RATE = 100.0
+# WINDOW_SIZE = 1.0
+
+# train_ds = HippocampusDataset(neural_train, label_train, window_size=WINDOW_SIZE, sampling_rate=SAMPLING_RATE)
+# test_ds = HippocampusDataset(neural_test, label_test, window_size=WINDOW_SIZE, sampling_rate=SAMPLING_RATE)
+
+# train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, collate_fn=custom_collate_fn, num_workers=0)
+# test_loader = DataLoader(test_ds, batch_size=32, shuffle=False, collate_fn=custom_collate_fn, num_workers=0)
+
+# from torch_brain.models import POYOPlus
+# from torch_brain.registry import ModalitySpec
+
+# output_dim = position.shape[1]
+# position_readout_spec = ModalitySpec(
+#     id="position",
+#     dim=output_dim,
+#     type="continuous"
+# )
+
+# model = POYOPlus(
+#     sequence_length=WINDOW_SIZE,
+#     readout_specs={"position": position_readout_spec},
+#     latent_step=1.0 / 8,
+#     num_latents_per_step=32,
+#     dim=128,
+#     depth=4,
+#     dim_head=32,
+#     cross_heads=4,
+#     self_heads=4,
+#     num_units=spikes.shape[1] + 1,
+#     num_sessions=2
+# ).to(device)
+
+# unit_ids = [str(i) for i in range(spikes.shape[1])]
+
+# optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-2)
+# criterion = nn.MSELoss()
+
+# num_epochs = 20
+
+# print("\nStarting Training...")
+# for epoch in range(num_epochs):
+#     model.train()
+#     train_loss = 0
+
+#     for batch_idx, batch_data in enumerate(train_loader):
+#         inputs = {k: v.to(device) for k, v in batch_data["model_inputs"].items()}
+#         targets = batch_data["target_values"].to(device)  # (B, Time, 3)
+
+#         optimizer.zero_grad()
+
+#         # Forward Pass
+#         outputs_dict = model(**inputs)
+
+#         if isinstance(outputs_dict, dict):
+#             pred = outputs_dict["position"]
+#         else:
+#             pred = outputs_dict
+
+#         loss = criterion(pred, targets)
+
+#         loss.backward()
+#         optimizer.step()
+
+#         train_loss += loss.item()
+
+#         if batch_idx % 50 == 0:
+#             print(f"Epoch {epoch + 1} | Batch {batch_idx} | Loss: {loss.item():.4f}")
+
+#     # --- Validation ---
+#     model.eval()
+#     val_loss = 0
+#     all_preds = []
+#     all_targets = []
+
+#     with torch.no_grad():
+#         for batch_data in test_loader:
+#             inputs = {k: v.to(device) for k, v in batch_data["model_inputs"].items()}
+#             targets = batch_data["target_values"].to(device)
+
+#             outputs_dict = model(**inputs)
+#             if isinstance(outputs_dict, dict):
+#                 pred = outputs_dict["position"]
+#             else:
+#                 pred = outputs_dict
+
+#             val_loss += criterion(pred, targets).item()
+
+#             all_preds.append(pred.cpu().numpy())
+#             all_targets.append(targets.cpu().numpy())
+
+#     all_preds = np.concatenate(all_preds, axis=0).reshape(-1, output_dim)
+#     all_targets = np.concatenate(all_targets, axis=0).reshape(-1, output_dim)
+#     r2 = r2_score(all_targets, all_preds)
+
+#     print(
+#         f"==> Epoch {epoch + 1} Finished. Avg Train Loss: {train_loss / len(train_loader):.4f} | Val Loss: {val_loss / len(test_loader):.4f} | R2 Score: {r2:.4f}")
+
+# print("Training Complete.")
