@@ -124,7 +124,8 @@ neural_test = spikes[split_idx:]
 label_train = position[:split_idx]
 label_test = position[split_idx:]
 
-
+SAMPLING_RATE = 100.0
+WINDOW_SIZE = 1.0
 
 import numpy as np
 import torch
