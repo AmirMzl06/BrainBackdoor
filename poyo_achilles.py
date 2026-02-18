@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import joblib
 import math
+import os
+os.environ["XFORMERS_DISABLED"] = "1"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
