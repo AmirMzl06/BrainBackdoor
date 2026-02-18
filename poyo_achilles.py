@@ -134,7 +134,18 @@ from sklearn.metrics import r2_score
 from torch_brain.registry import ModalitySpec
 from torch_brain.models import POYOPlus
 
+
+train_ds = HippocampusDataset(neural_train, label_train, window_size=WINDOW_SIZE, sampling_rate=SAMPLING_RATE)
+test_ds = HippocampusDataset(neural_test, label_test, window_size=WINDOW_SIZE, sampling_rate=SAMPLING_RATE)
+
+train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, collate_fn=custom_collate_fn, num_workers=0)
+test_loader = DataLoader(test_ds, batch_size=32, shuffle=False, collate_fn=custom_collate_fn, num_workers=0)
+
+from torch_brain.models import POYOPlus
+from torch_brain.registry import ModalitySpec
+
 output_dim = position.shape[1]
+# output_dim = position.shape[1]
 
 position_readout_spec = ModalitySpec(
     id=0,
