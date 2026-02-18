@@ -74,7 +74,6 @@ def custom_collate_fn(batch):
         input_token_type, batch_first=True, padding_value=0
     )
 
-    # 🔥 NEW: pad to multiple of 8
     seq_len = padded_unit_index.shape[1]
     pad_len = (8 - seq_len % 8) % 8
 
