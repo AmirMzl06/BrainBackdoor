@@ -130,6 +130,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.metrics import r2_score
+from torch_brain.registry import ModalitySpec
+from torch_brain.models import POYOPlus
 
 output_dim = position.shape[1]
 
