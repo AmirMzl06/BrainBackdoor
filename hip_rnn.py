@@ -180,6 +180,21 @@ for epoch in range(epochs):
           f"Loss: {loss.item():.4f} | "
           f"R2: {r2:.4f}")
 
+
+train_pred = model(X_train)
+
+train_r2 = r2_score(
+    y_train.cpu().numpy(),
+    train_pred.detach().cpu().numpy()
+)
+
+test_r2 = r2_score(
+    y_test.cpu().numpy(),
+    test_pred.cpu().numpy()
+)
+
+print(f"Train R2: {train_r2:.4f} | Test R2: {test_r2:.4f}")
+
 # class SimpleRNN(nn.Module):
 #     def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
 #         super().__init__()
