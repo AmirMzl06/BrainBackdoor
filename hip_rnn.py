@@ -134,7 +134,6 @@ class Seq2OneATTN(nn.Module):
 
         encoder_outputs, (hidden, cell) = self.encoder(x)
 
-        # hidden[-1] → آخرین لایه
         context, attn_weights = self.attention(
             hidden[-1],
             encoder_outputs
