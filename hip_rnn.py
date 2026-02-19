@@ -153,6 +153,8 @@ optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
 epochs = 2000
 print("TRAIN")
+from sklearn.metrics import r2_score
+
 for epoch in range(epochs):
 
     model.train()
@@ -165,7 +167,18 @@ for epoch in range(epochs):
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     optimizer.step()
 
-    print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f}")
+    model.eval()
+    with torch.no_grad():
+        test_pred = model(X_test)
+
+        r2 = r2_score(
+            y_test.cpu().numpy(),
+            test_pred.cpu().numpy()
+        )
+
+    print(f"Epoch {epoch+1}/{epochs} | "
+          f"Loss: {loss.item():.4f} | "
+          f"R2: {r2:.4f}")
 
 # class SimpleRNN(nn.Module):
 #     def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
