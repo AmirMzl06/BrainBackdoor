@@ -60,62 +60,183 @@ y_train = torch.tensor(y_train).to(device)
 X_test = torch.tensor(X_test).to(device)
 y_test = torch.tensor(y_test).to(device)
 
-class SimpleRNN(nn.Module):
-    def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
+class BahdanauAttention(nn.Module):
+    def __init__(self, hidden_dim):
         super().__init__()
-        self.rnn = nn.RNN(input_dim, hidden_dim, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.W1 = nn.Linear(hidden_dim, hidden_dim)
+        self.W2 = nn.Linear(hidden_dim, hidden_dim)
+        self.V = nn.Linear(hidden_dim, 1)
 
-    def forward(self, x):
-        out, _ = self.rnn(x)
-        out = out[:, -1, :]   # last timestep
-        out = self.fc(out)
-        return out
+    def forward(self, decoder_hidden, encoder_outputs):
+        # decoder_hidden: (batch, hidden)
+        # encoder_outputs: (batch, seq_len, hidden)
 
-class SimpleLSTM(nn.Module):
-    def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
+        decoder_hidden = decoder_hidden.unsqueeze(1)
+
+        score = self.V(
+            torch.tanh(
+                self.W1(encoder_outputs) +
+                self.W2(decoder_hidden)
+            )
+        )
+
+        attn_weights = torch.softmax(score, dim=1)
+
+        context = torch.sum(attn_weights * encoder_outputs, dim=1)
+
+        return context, attn_weights
+
+class Encoder(nn.Module):
+    def __init__(self, input_dim=120, hidden_dim=128):
         super().__init__()
         self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        out, _ = self.lstm(x)
-        out = out[:, -1, :]
-        out = self.fc(out)
-        return out
+        outputs, (hidden, cell) = self.lstm(x)
+        return outputs, hidden, cell
 
-def train_model(model, X_train, y_train, X_test, y_test, epochs=2000):
-    model.to(device)
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+class Decoder(nn.Module):
+    def __init__(self, output_dim=3, hidden_dim=128):
+        super().__init__()
+        self.lstm = nn.LSTM(output_dim + hidden_dim,
+                            hidden_dim,
+                            batch_first=True)
 
-    for epoch in range(epochs):
-        model.train()
-        optimizer.zero_grad()
+        self.attention = BahdanauAttention(hidden_dim)
+        self.fc = nn.Linear(hidden_dim, output_dim)
 
-        outputs = model(X_train)
-        loss = criterion(outputs, y_train)
+    def forward(self, x, hidden, cell, encoder_outputs):
 
-        loss.backward()
-        optimizer.step()
+        context, attn_weights = self.attention(hidden[-1],
+                                               encoder_outputs)
 
-        # R2
-        model.eval()
-        with torch.no_grad():
-            test_pred = model(X_test)
-            r2 = r2_score(
-                y_test.cpu().numpy(),
-                test_pred.cpu().numpy()
+        context = context.unsqueeze(1)
+
+        x = torch.cat([x, context], dim=2)
+
+        output, (hidden, cell) = self.lstm(x, (hidden, cell))
+
+        prediction = self.fc(output)
+
+        return prediction, hidden, cell, attn_weights
+
+class Seq2Seq(nn.Module):
+    def __init__(self, encoder, decoder, device):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.device = device
+
+    def forward(self, src, trg):
+
+        batch_size = src.shape[0]
+        seq_len = trg.shape[1]
+        output_dim = trg.shape[2]
+
+        outputs = torch.zeros(batch_size, seq_len, output_dim).to(self.device)
+
+        encoder_outputs, hidden, cell = self.encoder(src)
+
+        input_decoder = trg[:, 0:1, :]  # first timestep
+
+        for t in range(seq_len):
+
+            output, hidden, cell, _ = self.decoder(
+                input_decoder,
+                hidden,
+                cell,
+                encoder_outputs
             )
 
-        print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f} | R2: {r2:.4f}")
+            outputs[:, t:t+1, :] = output
 
-print("RNN")
-model_rnn = SimpleRNN()
-train_model(model_rnn, X_train, y_train, X_test, y_test)
+            input_decoder = output 
 
-print("LSTM")
-model_lstm = SimpleLSTM()
-train_model(model_lstm, X_train, y_train, X_test, y_test)
+        return outputs
+
+encoder = Encoder().to(device)
+decoder = Decoder().to(device)
+model = Seq2Seq(encoder, decoder, device).to(device)
+
+criterion = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+
+epochs = 2000
+print("TRAIN LSTM+ATTN")
+for epoch in range(epochs):
+
+    model.train()
+    optimizer.zero_grad()
+
+    output = model(X_train, y_train)
+
+    loss = criterion(output, y_train)
+
+    loss.backward()
+
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+    optimizer.step()
+
+    print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f}")
+
+
+# class SimpleRNN(nn.Module):
+#     def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
+#         super().__init__()
+#         self.rnn = nn.RNN(input_dim, hidden_dim, batch_first=True)
+#         self.fc = nn.Linear(hidden_dim, output_dim)
+
+#     def forward(self, x):
+#         out, _ = self.rnn(x)
+#         out = out[:, -1, :]   # last timestep
+#         out = self.fc(out)
+#         return out
+
+# class SimpleLSTM(nn.Module):
+#     def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
+#         super().__init__()
+#         self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+#         self.fc = nn.Linear(hidden_dim, output_dim)
+
+#     def forward(self, x):
+#         out, _ = self.lstm(x)
+#         out = out[:, -1, :]
+#         out = self.fc(out)
+#         return out
+
+# def train_model(model, X_train, y_train, X_test, y_test, epochs=2000):
+#     model.to(device)
+#     criterion = nn.MSELoss()
+#     optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+#     for epoch in range(epochs):
+#         model.train()
+#         optimizer.zero_grad()
+
+#         outputs = model(X_train)
+#         loss = criterion(outputs, y_train)
+
+#         loss.backward()
+#         optimizer.step()
+
+#         # R2
+#         model.eval()
+#         with torch.no_grad():
+#             test_pred = model(X_test)
+#             r2 = r2_score(
+#                 y_test.cpu().numpy(),
+#                 test_pred.cpu().numpy()
+#             )
+
+#         print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f} | R2: {r2:.4f}")
+
+# print("RNN")
+# model_rnn = SimpleRNN()
+# train_model(model_rnn, X_train, y_train, X_test, y_test)
+
+# print("LSTM")
+# model_lstm = SimpleLSTM()
+# train_model(model_lstm, X_train, y_train, X_test, y_test)
 
 
