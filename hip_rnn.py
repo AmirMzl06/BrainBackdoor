@@ -120,66 +120,52 @@ class Decoder(nn.Module):
 
         return prediction, hidden, cell, attn_weights
 
-class Seq2Seq(nn.Module):
-    def __init__(self, encoder, decoder, device):
+class Seq2OneATTN(nn.Module):
+    def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
         super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-        self.device = device
 
-    def forward(self, src, trg):
+        self.encoder = nn.LSTM(input_dim, hidden_dim, batch_first=True)
 
-        batch_size = src.shape[0]
-        seq_len = trg.shape[1]
-        output_dim = trg.shape[2]
+        self.attention = BahdanauAttention(hidden_dim)
 
-        outputs = torch.zeros(batch_size, seq_len, output_dim).to(self.device)
+        self.fc = nn.Linear(hidden_dim, output_dim)
 
-        encoder_outputs, hidden, cell = self.encoder(src)
+    def forward(self, x):
 
-        input_decoder = trg[:, 0:1, :]  # first timestep
+        encoder_outputs, (hidden, cell) = self.encoder(x)
 
-        for t in range(seq_len):
+        # hidden[-1] → آخرین لایه
+        context, attn_weights = self.attention(
+            hidden[-1],
+            encoder_outputs
+        )
 
-            output, hidden, cell, _ = self.decoder(
-                input_decoder,
-                hidden,
-                cell,
-                encoder_outputs
-            )
+        output = self.fc(context)
 
-            outputs[:, t:t+1, :] = output
-
-            input_decoder = output 
-
-        return outputs
+        return output
 
 encoder = Encoder().to(device)
 decoder = Decoder().to(device)
-model = Seq2Seq(encoder, decoder, device).to(device)
+model = Seq2OneATTN().to(device)
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
-epochs = 2000
-print("TRAIN LSTM+ATTN")
+epochs = 20
+print("TRAIN")
 for epoch in range(epochs):
 
     model.train()
     optimizer.zero_grad()
 
-    output = model(X_train, y_train)
-
+    output = model(X_train)
     loss = criterion(output, y_train)
 
     loss.backward()
-
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-
     optimizer.step()
 
     print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f}")
-
 
 # class SimpleRNN(nn.Module):
 #     def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
