@@ -151,7 +151,7 @@ model = Seq2OneATTN().to(device)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
-epochs = 20
+epochs = 2000
 print("TRAIN")
 for epoch in range(epochs):
 
