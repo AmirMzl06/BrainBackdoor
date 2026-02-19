@@ -84,7 +84,7 @@ class SimpleLSTM(nn.Module):
         out = self.fc(out)
         return out
 
-def train_model(model, X_train, y_train, X_test, y_test, epochs=20):
+def train_model(model, X_train, y_train, X_test, y_test, epochs=2000):
     model.to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
