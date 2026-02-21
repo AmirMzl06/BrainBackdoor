@@ -59,180 +59,187 @@ test_loader = DataLoader(
     batch_size=batch_size
 )
 
-class BahdanauAttention(nn.Module):
-    def __init__(self, hidden_dim):
-        super().__init__()
-        self.W1 = nn.Linear(hidden_dim, hidden_dim)
-        self.W2 = nn.Linear(hidden_dim, hidden_dim)
-        self.V = nn.Linear(hidden_dim, 1)
+# class BahdanauAttention(nn.Module):
+#     def __init__(self, hidden_dim):
+#         super().__init__()
+#         self.W1 = nn.Linear(hidden_dim, hidden_dim)
+#         self.W2 = nn.Linear(hidden_dim, hidden_dim)
+#         self.V = nn.Linear(hidden_dim, 1)
 
-    def forward(self, decoder_hidden, encoder_outputs):
-        decoder_hidden = decoder_hidden.unsqueeze(1)
-        score = self.V(
-            torch.tanh(
-                self.W1(encoder_outputs) +
-                self.W2(decoder_hidden)
-            )
-        )
-        attn_weights = torch.softmax(score, dim=1)
-        context = torch.sum(attn_weights * encoder_outputs, dim=1)
-        return context
+#     def forward(self, decoder_hidden, encoder_outputs):
+#         decoder_hidden = decoder_hidden.unsqueeze(1)
+#         score = self.V(
+#             torch.tanh(
+#                 self.W1(encoder_outputs) +
+#                 self.W2(decoder_hidden)
+#             )
+#         )
+#         attn_weights = torch.softmax(score, dim=1)
+#         context = torch.sum(attn_weights * encoder_outputs, dim=1)
+#         return context
 
-class Seq2OneATTN(nn.Module):
-    def __init__(self, input_dim=120, hidden_dim=64, output_dim=3):
+# class Seq2OneATTN(nn.Module):
+#     def __init__(self, input_dim=120, hidden_dim=64, output_dim=3):
+#         super().__init__()
+#         self.encoder = nn.LSTM(
+#             input_dim,
+#             hidden_dim,
+#             batch_first=True
+#         )
+#         self.attention = BahdanauAttention(hidden_dim)
+#         self.dropout = nn.Dropout(0.3)
+#         self.fc = nn.Linear(hidden_dim, output_dim)
+
+#     def forward(self, x):
+#         encoder_outputs, (hidden, cell) = self.encoder(x)
+#         context = self.attention(hidden[-1], encoder_outputs)
+#         context = self.dropout(context)
+#         output = self.fc(context)
+#         return output
+
+# model = Seq2OneATTN().to(device)
+
+# criterion = nn.MSELoss()
+# optimizer = torch.optim.Adam(
+#     model.parameters(),
+#     lr=3e-4,
+#     weight_decay=1e-4
+# )
+
+# epochs = 200
+# best_r2 = -1
+# patience = 20
+# counter = 0
+
+# for epoch in range(epochs):
+
+#     model.train()
+#     total_loss = 0
+
+#     for xb, yb in train_loader:
+#         xb = xb.to(device)
+#         yb = yb.to(device)
+
+#         optimizer.zero_grad()
+#         output = model(xb)
+#         loss = criterion(output, yb)
+#         loss.backward()
+#         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+#         optimizer.step()
+
+#         total_loss += loss.item()
+
+#     avg_loss = total_loss / len(train_loader)
+
+#     model.eval()
+#     preds = []
+#     trues = []
+
+#     with torch.no_grad():
+#         for xb, yb in test_loader:
+#             xb = xb.to(device)
+#             yb = yb.to(device)
+#             out = model(xb)
+#             preds.append(out.cpu())
+#             trues.append(yb.cpu())
+
+#     preds = torch.cat(preds).numpy()
+#     trues = torch.cat(trues).numpy()
+
+#     test_r2 = r2_score(trues, preds)
+
+#     train_preds = []
+#     train_trues = []
+
+#     with torch.no_grad():
+#         for xb, yb in train_loader:
+#             xb = xb.to(device)
+#             yb = yb.to(device)
+#             out = model(xb)
+#             train_preds.append(out.cpu())
+#             train_trues.append(yb.cpu())
+
+#     train_preds = torch.cat(train_preds).numpy()
+#     train_trues = torch.cat(train_trues).numpy()
+
+#     train_r2 = r2_score(train_trues, train_preds)
+
+#     print(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.4f} | Train R2: {train_r2:.4f} | Test R2: {test_r2:.4f}")
+
+#     if test_r2 > best_r2:
+#         best_r2 = test_r2
+#         counter = 0
+#     else:
+#         counter += 1
+#         if counter >= patience:
+#             break
+
+# print(f"Best Test R2: {best_r2:.4f}")
+
+
+class SimpleRNN(nn.Module):
+    def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
         super().__init__()
-        self.encoder = nn.LSTM(
-            input_dim,
-            hidden_dim,
-            batch_first=True
-        )
-        self.attention = BahdanauAttention(hidden_dim)
-        self.dropout = nn.Dropout(0.3)
+        self.rnn = nn.RNN(input_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        encoder_outputs, (hidden, cell) = self.encoder(x)
-        context = self.attention(hidden[-1], encoder_outputs)
-        context = self.dropout(context)
-        output = self.fc(context)
-        return output
+        out, _ = self.rnn(x)
+        out = out[:, -1, :]   # last timestep
+        out = self.fc(out)
+        return out
 
-model = Seq2OneATTN().to(device)
+class SimpleLSTM(nn.Module):
+    def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, output_dim)
 
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=3e-4,
-    weight_decay=1e-4
-)
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = out[:, -1, :]
+        out = self.fc(out)
+        return out
 
-epochs = 200
-best_r2 = -1
-patience = 20
-counter = 0
+def train_model(model, X_train, y_train, X_test, y_test, epochs=20):
+    model.to(device)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-for epoch in range(epochs):
-
-    model.train()
-    total_loss = 0
-
-    for xb, yb in train_loader:
-        xb = xb.to(device)
-        yb = yb.to(device)
-
+    for epoch in range(epochs):
+        model.train()
         optimizer.zero_grad()
-        output = model(xb)
-        loss = criterion(output, yb)
+
+        outputs = model(X_train)
+        loss = criterion(outputs, y_train)
+
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-        total_loss += loss.item()
+        # R2
+        model.eval()
+        with torch.no_grad():
+            test_pred = model(X_test)
+            r2 = r2_score(
+                y_test.cpu().numpy(),
+                test_pred.cpu().numpy()
+            )
 
-    avg_loss = total_loss / len(train_loader)
+        print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f} | R2: {r2:.4f}")
 
-    model.eval()
-    preds = []
-    trues = []
+import time
+print("RNN")
+model_rnn = SimpleRNN()
+start_rnn = time.time()
+train_model(model_rnn, X_train, y_train, X_test, y_test)
+end_rnn = time.time()
+print(f"rnn training time = {start_rnn - end_rnn}")
 
-    with torch.no_grad():
-        for xb, yb in test_loader:
-            xb = xb.to(device)
-            yb = yb.to(device)
-            out = model(xb)
-            preds.append(out.cpu())
-            trues.append(yb.cpu())
+print("LSTM")
+model_lstm = SimpleLSTM()
+start_lstm = time.time()
+train_model(model_lstm, X_train, y_train, X_test, y_test)
+end_lstm = time.time()
 
-    preds = torch.cat(preds).numpy()
-    trues = torch.cat(trues).numpy()
-
-    test_r2 = r2_score(trues, preds)
-
-    train_preds = []
-    train_trues = []
-
-    with torch.no_grad():
-        for xb, yb in train_loader:
-            xb = xb.to(device)
-            yb = yb.to(device)
-            out = model(xb)
-            train_preds.append(out.cpu())
-            train_trues.append(yb.cpu())
-
-    train_preds = torch.cat(train_preds).numpy()
-    train_trues = torch.cat(train_trues).numpy()
-
-    train_r2 = r2_score(train_trues, train_preds)
-
-    print(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.4f} | Train R2: {train_r2:.4f} | Test R2: {test_r2:.4f}")
-
-    if test_r2 > best_r2:
-        best_r2 = test_r2
-        counter = 0
-    else:
-        counter += 1
-        if counter >= patience:
-            break
-
-print(f"Best Test R2: {best_r2:.4f}")
-
-
-# class SimpleRNN(nn.Module):
-#     def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
-#         super().__init__()
-#         self.rnn = nn.RNN(input_dim, hidden_dim, batch_first=True)
-#         self.fc = nn.Linear(hidden_dim, output_dim)
-
-#     def forward(self, x):
-#         out, _ = self.rnn(x)
-#         out = out[:, -1, :]   # last timestep
-#         out = self.fc(out)
-#         return out
-
-# class SimpleLSTM(nn.Module):
-#     def __init__(self, input_dim=120, hidden_dim=128, output_dim=3):
-#         super().__init__()
-#         self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-#         self.fc = nn.Linear(hidden_dim, output_dim)
-
-#     def forward(self, x):
-#         out, _ = self.lstm(x)
-#         out = out[:, -1, :]
-#         out = self.fc(out)
-#         return out
-
-# def train_model(model, X_train, y_train, X_test, y_test, epochs=2000):
-#     model.to(device)
-#     criterion = nn.MSELoss()
-#     optimizer = optim.Adam(model.parameters(), lr=1e-3)
-
-#     for epoch in range(epochs):
-#         model.train()
-#         optimizer.zero_grad()
-
-#         outputs = model(X_train)
-#         loss = criterion(outputs, y_train)
-
-#         loss.backward()
-#         optimizer.step()
-
-#         # R2
-#         model.eval()
-#         with torch.no_grad():
-#             test_pred = model(X_test)
-#             r2 = r2_score(
-#                 y_test.cpu().numpy(),
-#                 test_pred.cpu().numpy()
-#             )
-
-#         print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f} | R2: {r2:.4f}")
-
-# print("RNN")
-# model_rnn = SimpleRNN()
-# train_model(model_rnn, X_train, y_train, X_test, y_test)
-
-# print("LSTM")
-# model_lstm = SimpleLSTM()
-# train_model(model_lstm, X_train, y_train, X_test, y_test)
-
+print(f"lstm training time = {start_lstm - end_lstm}")
 
