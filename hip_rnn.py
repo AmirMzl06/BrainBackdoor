@@ -99,13 +99,6 @@ test_loader = DataLoader(
 
 # model = Seq2OneATTN().to(device)
 
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=3e-4,
-    weight_decay=1e-4
-)
-
 # epochs = 200
 # best_r2 = -1
 # patience = 20
@@ -231,6 +224,12 @@ import time
 print("RNN")
 model_rnn = SimpleRNN()
 start_rnn = time.time()
+criterion = nn.MSELoss()
+optimizer = torch.optim.Adam(
+    model_rnn.parameters(),
+    lr=3e-4,
+    weight_decay=1e-4
+)
 train_model(model_rnn, X_train, y_train, X_test, y_test)
 end_rnn = time.time()
 print(f"rnn training time = {start_rnn - end_rnn}")
@@ -238,6 +237,12 @@ print(f"rnn training time = {start_rnn - end_rnn}")
 print("LSTM")
 model_lstm = SimpleLSTM()
 start_lstm = time.time()
+criterion = nn.MSELoss()
+optimizer = torch.optim.Adam(
+    model_lstm.parameters(),
+    lr=3e-4,
+    weight_decay=1e-4
+)
 train_model(model_lstm, X_train, y_train, X_test, y_test)
 end_lstm = time.time()
 
