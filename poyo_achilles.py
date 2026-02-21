@@ -239,6 +239,9 @@ print("Model and Vocab initialized. Starting Training...")
 num_epochs = 20
 
 scaler = torch.cuda.amp.GradScaler()
+import time
+
+start = time.time()
 
 for epoch in range(num_epochs):
     model.train()
@@ -299,6 +302,9 @@ for epoch in range(num_epochs):
     print(f"R2 Score: {r2:.4f}")
     print("-" * 30)
 
+end = time.time()
+
+print(f"training time = {start - end}")
 print("Training Complete!")
 # SAMPLING_RATE = 100.0
 # WINDOW_SIZE = 1.0
