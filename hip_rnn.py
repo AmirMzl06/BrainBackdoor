@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler
+from torch import optim
 
 data_path = "hip/achilles.jl"
 data = joblib.load(data_path)
