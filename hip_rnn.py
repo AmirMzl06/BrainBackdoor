@@ -195,10 +195,17 @@ class SimpleLSTM(nn.Module):
         out = self.fc(out)
         return out
 
-def train_model(model, X_train, y_train, X_test, y_test, epochs=20):
-    model.to(device)
+
+def train_model(model, X_train, y_train, X_test, y_test, epochs=20, lr=1e-3):
+    model = model.to(device)
+    
+    X_train = X_train.to(device)
+    y_train = y_train.to(device)
+    X_test = X_test.to(device)
+    y_test = y_test.to(device)
+    
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
 
     for epoch in range(epochs):
         model.train()
@@ -210,7 +217,6 @@ def train_model(model, X_train, y_train, X_test, y_test, epochs=20):
         loss.backward()
         optimizer.step()
 
-        # R2
         model.eval()
         with torch.no_grad():
             test_pred = model(X_test)
@@ -220,32 +226,19 @@ def train_model(model, X_train, y_train, X_test, y_test, epochs=20):
             )
 
         print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f} | R2: {r2:.4f}")
+    
+    return model
 
-import time
 print("RNN")
 model_rnn = SimpleRNN()
 start_rnn = time.time()
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(
-    model_rnn.parameters(),
-    lr=3e-4,
-    weight_decay=1e-4
-)
-train_model(model_rnn, X_train, y_train, X_test, y_test)
+train_model(model_rnn, X_train, y_train, X_test, y_test, epochs=20, lr=3e-4)
 end_rnn = time.time()
-print(f"rnn training time = {start_rnn - end_rnn}")
+print(f"rnn training time = {end_rnn - start_rnn:.2f} seconds")
 
-print("LSTM")
+print("\nLSTM")
 model_lstm = SimpleLSTM()
 start_lstm = time.time()
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(
-    model_lstm.parameters(),
-    lr=3e-4,
-    weight_decay=1e-4
-)
-train_model(model_lstm, X_train, y_train, X_test, y_test)
+train_model(model_lstm, X_train, y_train, X_test, y_test, epochs=20, lr=3e-4)
 end_lstm = time.time()
-
-print(f"lstm training time = {start_lstm - end_lstm}")
-
+print(f"lstm training time = {end_lstm - start_lstm:.2f} seconds")
