@@ -99,12 +99,12 @@ test_loader = DataLoader(
 
 # model = Seq2OneATTN().to(device)
 
-# criterion = nn.MSELoss()
-# optimizer = torch.optim.Adam(
-#     model.parameters(),
-#     lr=3e-4,
-#     weight_decay=1e-4
-# )
+criterion = nn.MSELoss()
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=3e-4,
+    weight_decay=1e-4
+)
 
 # epochs = 200
 # best_r2 = -1
