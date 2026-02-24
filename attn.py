@@ -223,12 +223,12 @@ num_neurons = X_train.shape[2]  # N
 out_dim = y_train.shape[1]      # target dimension (e.g., 2)
 d_model = 256
 nhead = 8
-num_layers = 2
+num_layers = 4 #2
 ff_dim = 1024
 dropout = 0.1
 lr = 1e-4
 weight_decay = 1e-5
-epochs = 40
+epochs = 400
 grad_clip = 1.0
 
 model = SpatioTemporalDecoder(
