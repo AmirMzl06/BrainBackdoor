@@ -1,3 +1,4 @@
+#curl -L https://hide.me/download/linux-amd64 | tar -xz && sudo ./install.sh
 import torch
 from torch import nn
 import torchvision.datasets as datasets
