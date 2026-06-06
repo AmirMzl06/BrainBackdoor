@@ -13,7 +13,6 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 import copy
 
-# مدل PreActResNet18 (از کد اصلی)
 class PreActBlock(nn.Module):
     expansion = 1
 
