@@ -396,8 +396,9 @@ class AdvancedTANRLoss(nn.Module):
             loss_tnn = torch.zeros((), device=z.device, dtype=z.dtype)
 
         eye_z = torch.eye(sigma_z.size(0), device=z.device, dtype=z.dtype)
-        loss_logdet = -torch.linalg.slogdet(sigma_z + self.eps * eye_z)[1]
-
+        # loss_logdet = -torch.linalg.slogdet(sigma_z + self.eps * eye_z)[1]
+        loss_logdet = -torch.linalg.slogdet(sigma_z + self.eps * eye_z)[1] / sigma_z.size(0) #normalize
+        
         sigma_zy = (z_centered.T @ y_centered) / denom
         sigma_y = (y_centered.T @ y_centered) / denom
         eye_y = torch.eye(sigma_y.size(0), device=z.device, dtype=z.dtype)
@@ -550,39 +551,39 @@ baseline_cfg = {
     "l2": 0.0,
     "l3": 0.0,
     "hidden_dim": 64,
-    "epochs": 80,
+    "epochs": 200,
     "lr": 1e-3
 }
 
 tanr_cfgs = [
     {
-        "name": "tanr_l001",
+        "name": "tanr_0001",
         "r": 8,
-        "l1": 0.01,
+        "l1": 0.001,
         "l2": 0.01,
         "l3": 0.01,
         "hidden_dim": 64,
-        "epochs": 80,
+        "epochs": 200,
         "lr": 1e-3
     },
     {
-        "name": "tanr_l005",
+        "name": "tanr_00005",
         "r": 8,
-        "l1": 0.005,
+        "l1": 0.0005,
         "l2": 0.01,
         "l3": 0.01,
         "hidden_dim": 64,
-        "epochs": 80,
+        "epochs": 200,
         "lr": 1e-3
     },
     {
-        "name": "tanr_l010",
+        "name": "tanr_00001",
         "r": 8,
-        "l1": 0.01,
+        "l1": 0.0001,
         "l2": 0.02,
         "l3": 0.01,
         "hidden_dim": 64,
-        "epochs": 80,
+        "epochs": 200,
         "lr": 1e-3
     }
 ]
