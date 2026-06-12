@@ -287,7 +287,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 data_path = "hip/achilles.jl"
-save_dir = "Nimage"
+save_dir = "NNimage"
 os.makedirs(save_dir, exist_ok=True)
 
 data = joblib.load(data_path)
@@ -555,19 +555,59 @@ baseline_cfg = {
     "lr": 1e-3
 }
 
-tanr_cfgs = [
+tanr_cfgs= [
     {
-        "name": "tanr_0001",
+        "name": "only_task",
         "r": 8,
-        "l1": 0.001,
+        "l1": 0.0,
+        "l2": 0.0,
+        "l3": 0.0,
+        "hidden_dim": 64,
+        "epochs": 200,
+        "lr": 1e-3
+    },
+    {
+        "name": "task_tnn",
+        "r": 8,
+        "l1": 0.0005,
+        "l2": 0.0,
+        "l3": 0.0,
+        "hidden_dim": 64,
+        "epochs": 200,
+        "lr": 1e-3
+    },
+    {
+        "name": "task_rank",
+        "r": 8,
+        "l1": 0.0,
         "l2": 0.01,
+        "l3": 0.0,
+        "hidden_dim": 64,
+        "epochs": 200,
+        "lr": 1e-3
+    },
+    {
+        "name": "task_logdet",
+        "r": 8,
+        "l1": 0.0,
+        "l2": 0.0,
         "l3": 0.01,
         "hidden_dim": 64,
         "epochs": 200,
         "lr": 1e-3
     },
     {
-        "name": "tanr_00005",
+        "name": "no_logdet",
+        "r": 8,
+        "l1": 0.0005,
+        "l2": 0.01,
+        "l3": 0.0,
+        "hidden_dim": 64,
+        "epochs": 200,
+        "lr": 1e-3
+    },
+    {
+        "name": "full_tanr",
         "r": 8,
         "l1": 0.0005,
         "l2": 0.01,
@@ -575,19 +615,8 @@ tanr_cfgs = [
         "hidden_dim": 64,
         "epochs": 200,
         "lr": 1e-3
-    },
-    {
-        "name": "tanr_00001",
-        "r": 8,
-        "l1": 0.0001,
-        "l2": 0.02,
-        "l3": 0.01,
-        "hidden_dim": 64,
-        "epochs": 200,
-        "lr": 1e-3
     }
 ]
-
 print("--- Training Baseline Model ---")
 start = time.time()
 model_base, z_base, y_base, r2_base, hist_base = train_and_evaluate(
