@@ -551,7 +551,7 @@ baseline_cfg = {
     "l2": 0.0,
     "l3": 0.0,
     "hidden_dim": 64,
-    "epochs": 2000,
+    "epochs": 150,
     "lr": 1e-3
 }
 
@@ -597,13 +597,33 @@ tanr_cfgs= [
     #     "lr": 1e-3
     # },
     {
-        "name": "no_logdet",
+        "name": "TANR64",
         "r": 8,
         "l1": 0.0005,
         "l2": 0.01,
         "l3": 0.0,
-        "hidden_dim": 128,
-        "epochs": 2000,
+        "hidden_dim": 64,
+        "epochs": 150,
+        "lr": 1e-3
+    },
+    {
+        "name": "TANR8",
+        "r": 8,
+        "l1": 0.0005,
+        "l2": 0.01,
+        "l3": 0.0,
+        "hidden_dim": 8,
+        "epochs": 150,
+        "lr": 1e-3
+    },
+    {
+        "name": "TANR3",
+        "r": 3,
+        "l1": 0.0005,
+        "l2": 0.01,
+        "l3": 0.0,
+        "hidden_dim": 3,
+        "epochs": 150,
         "lr": 1e-3
     }
     # {
