@@ -353,11 +353,14 @@ test_loader = DataLoader(
 class SimpleGRUWithLatent(nn.Module):
     def __init__(self, input_dim, hidden_dim=64, output_dim=1):
         super().__init__()
-        self.gru = nn.GRU(input_dim, hidden_dim, batch_first=True)
+        # self.gru = nn.GRU(input_dim, hidden_dim, batch_first=True)
+        # self.fc = nn.Linear(hidden_dim, output_dim)
+        ###RNN
+        self.rnn = nn.RNN(input_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        out, _ = self.gru(x)
+        out, _ = self.rnn(x)
         z = out[:, -1, :]
         y_pred = self.fc(z)
         return y_pred, z
