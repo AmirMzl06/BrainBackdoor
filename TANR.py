@@ -286,7 +286,7 @@ if torch.cuda.is_available():
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-data_path = "hip/buddy.jl"
+data_path = "hip/cicero.jl"
 save_dir = "Finalimage"
 os.makedirs(save_dir, exist_ok=True)
 
