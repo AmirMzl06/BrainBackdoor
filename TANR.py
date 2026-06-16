@@ -286,7 +286,7 @@ if torch.cuda.is_available():
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-data_path = "hip/achilles.jl"
+data_path = "hip/buddy.jl"
 save_dir = "Finalimage"
 os.makedirs(save_dir, exist_ok=True)
 
@@ -555,8 +555,8 @@ baseline_cfg = {
     "l1": 0.0,
     "l2": 0.0,
     "l3": 0.0,
-    "hidden_dim": 3,
-    "epochs": 850,
+    "hidden_dim": 64,
+    "epochs": 150,
     "lr": 1e-3
 }
 
@@ -601,26 +601,26 @@ tanr_cfgs= [
     #     "epochs": 200,
     #     "lr": 1e-3
     # },
-    # {
-    #     "name": "TANR64",
-    #     "r": 8,
-    #     "l1": 0.0005,
-    #     "l2": 0.01,
-    #     "l3": 0.0,
-    #     "hidden_dim": 64,
-    #     "epochs": 150,
-    #     "lr": 1e-3
-    # },
-    # {
-    #     "name": "TANR8",
-    #     "r": 8,
-    #     "l1": 0.0005,
-    #     "l2": 0.01,
-    #     "l3": 0.0,
-    #     "hidden_dim": 8,
-    #     "epochs": 150,
-    #     "lr": 1e-3
-    # },
+    {
+        "name": "TANR64",
+        "r": 8,
+        "l1": 0.0005,
+        "l2": 0.01,
+        "l3": 0.0,
+        "hidden_dim": 64,
+        "epochs": 150,
+        "lr": 1e-3
+    },
+    {
+        "name": "TANR8",
+        "r": 8,
+        "l1": 0.0005,
+        "l2": 0.01,
+        "l3": 0.0,
+        "hidden_dim": 8,
+        "epochs": 150,
+        "lr": 1e-3
+    },
     {
         "name": "TANR3",
         "r": 3,
@@ -628,7 +628,7 @@ tanr_cfgs= [
         "l2": 0.01,
         "l3": 0.0,
         "hidden_dim": 3,
-        "epochs": 850,
+        "epochs": 150,
         "lr": 1e-3
     }
     # {
