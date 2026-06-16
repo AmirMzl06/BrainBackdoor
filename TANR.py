@@ -556,7 +556,7 @@ baseline_cfg = {
     "l2": 0.0,
     "l3": 0.0,
     "hidden_dim": 3,
-    "epochs": 150,
+    "epochs": 850,
     "lr": 1e-3
 }
 
@@ -628,7 +628,7 @@ tanr_cfgs= [
         "l2": 0.01,
         "l3": 0.0,
         "hidden_dim": 3,
-        "epochs": 150,
+        "epochs": 850,
         "lr": 1e-3
     }
     # {
