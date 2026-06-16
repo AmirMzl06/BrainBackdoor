@@ -295,6 +295,8 @@ data = joblib.load(data_path)
 spikes = data["spikes"].astype(np.float32)
 position = data["position"].astype(np.float32)
 
+position = position[:, :2]
+
 if position.ndim == 1:
     position = position.reshape(-1, 1)
 
