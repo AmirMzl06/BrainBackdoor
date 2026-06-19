@@ -1,4 +1,3 @@
-salam in code ro bbin:
 import os
 import shutil
 import subprocess
