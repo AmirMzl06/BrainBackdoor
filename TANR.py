@@ -646,7 +646,6 @@ print(f"Running on: {device}")
 
 input_dim = X_train.shape[-1]
 output_dim = y_train.shape[-1]
-
 baseline_cfg = {
     "name": "baseline",
     "r": 8,
@@ -657,88 +656,71 @@ baseline_cfg = {
     "epochs": 150,
     "lr": 1e-3
 }
-
-tanr_cfgs= [
-    # {
-    #     "name": "only_task",
-    #     "r": 8,
-    #     "l1": 0.0,
-    #     "l2": 0.0,
-    #     "l3": 0.0,
-    #     "hidden_dim": 64,
-    #     "epochs": 200,
-    #     "lr": 1e-3
-    # },
-    # {
-    #     "name": "task_tnn",
-    #     "r": 8,
-    #     "l1": 0.0005,
-    #     "l2": 0.0,
-    #     "l3": 0.0,
-    #     "hidden_dim": 64,
-    #     "epochs": 200,
-    #     "lr": 1e-3
-    # },
-    # {
-    #     "name": "task_rank",
-    #     "r": 8,
-    #     "l1": 0.0,
-    #     "l2": 0.01,
-    #     "l3": 0.0,
-    #     "hidden_dim": 64,
-    #     "epochs": 200,
-    #     "lr": 1e-3
-    # },
-    # {
-    #     "name": "task_logdet",
-    #     "r": 8,
-    #     "l1": 0.0,
-    #     "l2": 0.0,
-    #     "l3": 0.01,
-    #     "hidden_dim": 64,
-    #     "epochs": 200,
-    #     "lr": 1e-3
-    # },
+ 
+tanr_cfgs = [
+    {
+        "name": "only_task",
+        "r": 8, "l1": 0.0, "l2": 0.0, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+    {
+        "name": "task_tnn_only",
+        "r": 8, "l1": 0.0005, "l2": 0.0, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+    {
+        "name": "task_rank_only",
+        "r": 8, "l1": 0.0, "l2": 0.5, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+    {
+        "name": "task_logdet_only",
+        "r": 8, "l1": 0.0, "l2": 0.0, "l3": 0.01,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+ 
+    {
+        "name": "rank_sweep_l2_0.01",
+        "r": 8, "l1": 0.0005, "l2": 0.01, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+    {
+        "name": "rank_sweep_l2_0.1",
+        "r": 8, "l1": 0.0005, "l2": 0.1, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+    {
+        "name": "rank_sweep_l2_0.5",
+        "r": 8, "l1": 0.0005, "l2": 0.5, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+    {
+        "name": "rank_sweep_l2_2.0",
+        "r": 8, "l1": 0.0005, "l2": 2.0, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
+ 
     {
         "name": "TANR64",
-        "r": 8,
-        "l1": 0.0005,
-        "l2": 0.01,
-        "l3": 0.0,
-        "hidden_dim": 64,
-        "epochs": 150,
-        "lr": 1e-3
+        "r": 8, "l1": 0.0005, "l2": 0.5, "l3": 0.0,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
     },
     {
         "name": "TANR8",
-        "r": 8,
-        "l1": 0.0005,
-        "l2": 0.01,
-        "l3": 0.0,
-        "hidden_dim": 8,
-        "epochs": 150,
-        "lr": 1e-3
+        "r": 8, "l1": 0.0005, "l2": 0.5, "l3": 0.0,
+        "hidden_dim": 8, "epochs": 150, "lr": 1e-3
     },
     {
         "name": "TANR3",
-        "r": 3,
-        "l1": 0.0005,
-        "l2": 0.01,
-        "l3": 0.0,
-        "hidden_dim": 3,
-        "epochs": 150,
-        "lr": 1e-3
-    }
-    # {
-    #     "name": "full_tanr",
-    #     "r": 8,
-    #     "l1": 0.0005,
-    #     "l2": 0.01,
-    #     "l3": 0.01,
-    #     "hidden_dim": 64,
-    #     "epochs": 200,
-    #     "lr": 1e-3
-    # }
+        "r": 3, "l1": 0.0005, "l2": 0.5, "l3": 0.0,
+        "hidden_dim": 3, "epochs": 150, "lr": 1e-3
+    },
+ 
+    {
+        "name": "full_tanr",
+        "r": 8, "l1": 0.0005, "l2": 0.5, "l3": 0.01,
+        "hidden_dim": 64, "epochs": 150, "lr": 1e-3
+    },
 ]
 print("--- Training Baseline Model ---")
 start = time.time()
