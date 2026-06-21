@@ -430,7 +430,7 @@ class SimpleGRUWithLatent(nn.Module):
         super().__init__()
         if k_task is None:
             k_task = max(1, hidden_dim // 2)
-        assert 0 < k_task < hidden_dim,
+        assert 0 < k_task < hidden_dim
 
         self.hidden_dim = hidden_dim
         self.k_task = k_task
