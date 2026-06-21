@@ -420,19 +420,6 @@ test_loader = DataLoader(
 #         )
 #         return total_loss
 
-"""
-این دو کلاس را در TANR.py جایگزین SimpleGRUWithLatent و AdvancedTANRLoss کنید.
-بقیه‌ی فایل (data loading, evaluate, train_and_evaluate, plot_latent_spaces,
-plot_history, tanr_cfgs, ...) دقیقا همان‌طور که بود می‌ماند - هیچ تغییری لازم نیست،
-چون امضای forward (ورودی/خروجی) عینا حفظ شده است:
-    model(x) -> (y_pred, z)
-    criterion(z, y_pred, y_true) -> total_loss
-
-تنها تفاوت داخلی: z به دو بخش تفکیک می‌شود (z_task | z_res) با دو لایه‌ی
-Linear مجزا، و y_pred فقط از بخش z_task ساخته می‌شود. به همان hidden_dim
-که می‌دهید، خودش به‌صورت خودکار k = hidden_dim // 2 را برای z_task در نظر
-می‌گیرد (قابل تغییر با آرگومان k_task اگر خواستید صریح بدهید).
-"""
 
 import torch
 import torch.nn as nn
@@ -441,11 +428,9 @@ import torch.nn as nn
 class SimpleGRUWithLatent(nn.Module):
     def __init__(self, input_dim, hidden_dim=64, output_dim=1, k_task=None):
         super().__init__()
-        # k_task: ابعاد بلوک task-relevant. اگر ندهید، نصف hidden_dim
-        # (حداقل ۱) در نظر گرفته می‌شود.
         if k_task is None:
             k_task = max(1, hidden_dim // 2)
-        assert 0 < k_task < hidden_dim, "k_task باید بین 0 و hidden_dim باشد"
+        assert 0 < k_task < hidden_dim,
 
         self.hidden_dim = hidden_dim
         self.k_task = k_task
@@ -453,11 +438,9 @@ class SimpleGRUWithLatent(nn.Module):
 
         self.rnn = nn.RNN(input_dim, hidden_dim, batch_first=True)
 
-        # دو projection head مجزا از خروجی مشترک RNN -> این خط جدید است
         self.to_task = nn.Linear(hidden_dim, k_task)
         self.to_res = nn.Linear(hidden_dim, self.k_res)
 
-        # فک پیش‌بینی رفتار: فقط از بخش task می‌خواند (نه از کل hidden state)
         self.fc = nn.Linear(k_task, output_dim)
 
     def forward(self, x):
@@ -466,77 +449,66 @@ class SimpleGRUWithLatent(nn.Module):
 
         z_task = self.to_task(h)
         z_res = self.to_res(h)
-        z = torch.cat([z_task, z_res], dim=-1)   # همان شکل قبلی (batch, hidden_dim)
-                                                   # برای سازگاری کامل با evaluate/plot
+        z = torch.cat([z_task, z_res], dim=-1)
 
-        y_pred = self.fc(z_task)                  # تفاوت کلیدی: فقط از z_task
+        y_pred = self.fc(z_task)
 
         return y_pred, z
 
 
+
 class AdvancedTANRLoss(nn.Module):
-    def __init__(self, r=8, lambda1=0.01, lambda2=0.01, lambda3=0.01, eps=1e-5,
-                 k_task=None):
+    def __init__(self, r=8, lambda1=0.01, lambda2=0.01, lambda3=0.01, eps=1e-5):
         super().__init__()
         self.r = r
         self.lambda1 = lambda1
         self.lambda2 = lambda2
         self.lambda3 = lambda3
         self.eps = eps
-        self.k_task = k_task   # اگر None باشد، در forward از نصف ابعاد z استفاده می‌شود
         self.mse = nn.MSELoss()
-
+ 
     def forward(self, z, y_pred, y_true):
         n = z.size(0)
         if n < 2:
             return self.mse(y_pred, y_true)
-
+ 
         task_loss = self.mse(y_pred, y_true)
-
+ 
         if self.lambda1 == 0.0 and self.lambda2 == 0.0 and self.lambda3 == 0.0:
             return task_loss
-
-        # تفکیک z به همان دو بلوکی که مدل ساخته (z_task | z_res)
-        d = z.size(1)
-        k_task = self.k_task if self.k_task is not None else max(1, d // 2)
-        z_task = z[:, :k_task]
-        z_res = z[:, k_task:]
-
-        denom = max(n - 1, 1)
-
-        # ---- L_tnn حالا فقط روی z_res (تفاوت کلیدی نسبت به نسخه‌ی قبلی) ----
-        loss_tnn = torch.zeros((), device=z.device, dtype=z.dtype)
-        if z_res.size(1) > 0:
-            z_res_c = z_res - z_res.mean(dim=0, keepdim=True)
-            s_res = torch.linalg.svdvals(z_res_c)
-            r_eff = min(self.r, z_res.size(1) - 1) if z_res.size(1) > 1 else 0
-            r_eff = max(r_eff, 0)
-            if s_res.numel() > r_eff:
-                loss_tnn = s_res[r_eff:].sum()
-
-        # ---- L_logdet هم منطقی‌تر است که روی z_res باشد (ضد فروپاشی کامل) ----
-        z_res_c = z_res - z_res.mean(dim=0, keepdim=True) if z_res.size(1) > 0 else z_res
-        loss_logdet = torch.zeros((), device=z.device, dtype=z.dtype)
-        if z_res.size(1) > 0:
-            sigma_res = (z_res_c.T @ z_res_c) / denom
-            eye_res = torch.eye(sigma_res.size(0), device=z.device, dtype=z.dtype)
-            loss_logdet = -torch.linalg.slogdet(sigma_res + self.eps * eye_res)[1] / sigma_res.size(0)
-
-        # ---- L_task_rank فقط روی z_task (تفاوت کلیدی نسبت به نسخه‌ی قبلی) ----
-        z_task_c = z_task - z_task.mean(dim=0, keepdim=True)
+ 
+        z_centered = z - z.mean(dim=0, keepdim=True)
         y_centered = y_true - y_true.mean(dim=0, keepdim=True)
-
-        sigma_zy = (z_task_c.T @ y_centered) / denom
+ 
+        denom = max(n - 1, 1)
+ 
+        sigma_z = (z_centered.T @ z_centered) / denom
+ 
+        s_z = torch.linalg.svdvals(z_centered)
+        if s_z.numel() > self.r:
+            loss_tnn = s_z[self.r:].sum()
+        else:
+            loss_tnn = torch.zeros((), device=z.device, dtype=z.dtype)
+ 
+        eye_z = torch.eye(sigma_z.size(0), device=z.device, dtype=z.dtype)
+        loss_logdet = -torch.linalg.slogdet(sigma_z + self.eps * eye_z)[1] / sigma_z.size(0)
+ 
+        sigma_zy = (z_centered.T @ y_centered) / denom
         sigma_y = (y_centered.T @ y_centered) / denom
         eye_y = torch.eye(sigma_y.size(0), device=z.device, dtype=z.dtype)
-        # inv به‌جای pinv: بعد از +eps*I دیگر singular نیست -> گرادیان پایدارتر
         sigma_y_inv = torch.linalg.inv(sigma_y + self.eps * eye_y)
-
-        sigma_task_lin = sigma_zy @ sigma_y_inv @ sigma_zy.T
-        # PSD است -> eigvalsh سریع‌تر و پایدارتر از svdvals عمومی
-        eigvals = torch.linalg.eigvalsh(sigma_task_lin)
-        loss_task_rank = eigvals.clamp(min=0).sum()
-
+ 
+        sigma_task_lin = sigma_zy @ sigma_y_inv @ sigma_zy.T  
+        eigvals = torch.linalg.eigvalsh(sigma_task_lin).clamp(min=0)
+ 
+        sum_eig = eigvals.sum()
+        sum_eig_sq = (eigvals ** 2).sum()
+ 
+        effective_rank_ratio = sum_eig_sq / (sum_eig ** 2 + self.eps)
+ 
+       
+        loss_task_rank = -effective_rank_ratio
+ 
         total_loss = (
             task_loss
             + self.lambda1 * loss_tnn
@@ -544,6 +516,7 @@ class AdvancedTANRLoss(nn.Module):
             + self.lambda3 * loss_logdet
         )
         return total_loss
+
 
 def evaluate(model, loader, device):
     model.eval()
