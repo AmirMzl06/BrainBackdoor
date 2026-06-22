@@ -184,7 +184,11 @@ for name in rats:
     attribution_results[name] = compute_attribution_for_rat(
         name, target_folder=target_folder, split="train"
     )
+    
+import os
 
+save_dir = "Jac"
+os.makedirs(save_dir, exist_ok=True)
 
 for name in rats:
     res = attribution_results[name]
@@ -215,7 +219,12 @@ for name in rats:
 
     plt.suptitle(f"xCEBRA attribution comparison — {name}", y=1.02, fontsize=14)
     plt.tight_layout()
+
+    save_path = os.path.join(save_dir, f"{name}_attribution.png")
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
     plt.show()
+    plt.close()
 
 
 for name in rats:
